@@ -6,7 +6,7 @@ import { renderVideo } from './src/media/ffmpeg.js';
 import { scrapeArticle } from './src/utils/scraper.js';
 
 // Contoh Input (Bisa berupa TEKS PANJANG atau cukup LINK BERITA!)
-const sampleArticle = 'https://news.detik.com/internasional/d-8584409/rudal-as-tak-cukup-untuk-perang-habis-habisan-lawan-iran?page=3';
+const sampleArticle = 'fakta madu';
 
 async function main() {
   try {

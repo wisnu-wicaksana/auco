@@ -1,9 +1,5 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
-
-const execFileAsync = promisify(execFile);
 
 const TEMP_DIR = 'workspace/temp';
 const MAX_CONCURRENT = 3;
@@ -49,15 +45,6 @@ async function downloadFile(url, filepath) {
   await fs.writeFile(filepath, buffer);
 }
 
-async function formatVideo(input, output, duration) {
-  const args = [
-    '-y', '-stream_loop', '-1', '-i', input, '-t', String(duration),
-    '-vf', 'scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=30,eq=contrast=1.12:saturation=1.15:brightness=-0.01',
-    '-c:v', 'libx264', '-preset', 'fast', '-crf', '22', '-pix_fmt', 'yuv420p', '-an', output
-  ];
-  await execFileAsync('ffmpeg', args);
-}
-
 async function processScene(scene, index, fallbackKeywords, pexelsKey, usedVideoIds) {
   try {
     const duration = Number(scene.exactDuration ?? 5);
@@ -74,16 +61,12 @@ async function processScene(scene, index, fallbackKeywords, pexelsKey, usedVideo
     usedVideoIds.add(video.id);
 
     const videoFile = video.video_files.find(v => v.quality === 'hd') ?? video.video_files.find(v => v.width >= 1080) ?? video.video_files[0];
-    const rawPath = path.join(TEMP_DIR, `raw_adegan_${index + 1}.mp4`);
     const finalPath = path.join(TEMP_DIR, `adegan_${index + 1}.mp4`);
 
     console.log(`   [INFO] Mengunduh adegan ${index + 1}...`);
-    await downloadFile(videoFile.link, rawPath);
+    // Langsung simpan raw video. Encoding akan dilakukan sekaligus di ffmpeg.js untuk menghindari double-encoding.
+    await downloadFile(videoFile.link, finalPath);
 
-    console.log(`   [INFO] Memformat adegan ${index + 1} dengan FFmpeg...`);
-    await formatVideo(rawPath, finalPath, duration);
-
-    await fs.unlink(rawPath).catch(() => {});
     console.log(`   [SUCCESS] Adegan ${index + 1} siap: ${finalPath}`);
     return finalPath;
   } catch (error) {

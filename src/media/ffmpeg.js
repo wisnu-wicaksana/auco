@@ -4,61 +4,77 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 const execPromise = promisify(exec);
 
+async function getBestEncoder() {
+  try {
+    const { stdout } = await execPromise('ffmpeg -encoders');
+    if (stdout.includes('h264_videotoolbox')) return 'h264_videotoolbox';
+    if (stdout.includes('h264_nvenc')) return 'h264_nvenc';
+    if (stdout.includes('h264_qsv')) return 'h264_qsv';
+    if (stdout.includes('h264_amf')) return 'h264_amf';
+  } catch (e) {
+    console.warn('   [WARNING] Gagal mendeteksi encoder hardware, menggunakan libx264 default.');
+  }
+  return 'libx264';
+}
+
 export async function renderVideo(adeganList, audioFile, outputFile) {
   console.log('[6/6] [INFO] Menjahit Audio dan Gambar menjadi Video MP4 (FFmpeg)...');
 
   try {
-    let concatText = '';
-    let validScenes = 0;
+    let validScenes = [];
     
     // Pastikan adegan benar-benar ada (tidak di-skip karena error pexels)
     for (let i = 0; i < adeganList.length; i++) {
       const adeganPath = `workspace/temp/adegan_${i + 1}.mp4`;
       if (fs.existsSync(adeganPath)) {
-        concatText += `file 'adegan_${i + 1}.mp4'\n`;
-        validScenes++;
+        validScenes.push({ path: adeganPath, duration: adeganList[i].exactDuration ?? 5 });
       } else {
         console.warn(`   [WARNING] adegan_${i + 1}.mp4 tidak ditemukan, akan di-skip dalam proses render.`);
       }
     }
     
-    if (validScenes === 0) {
+    if (validScenes.length === 0) {
       console.error('   [ERROR] Tidak ada satupun file video Pexels yang berhasil diunduh. Render dibatalkan.');
       return;
     }
 
-    fs.writeFileSync('workspace/temp/list.txt', concatText);
+    const encoder = await getBestEncoder();
+    console.log(`   [INFO] Menggunakan Video Encoder: ${encoder} (Cross-Platform Hardware Acceleration)`);
+
+    let ffmpegInputs = '';
+    let filterComplex = '';
+    let concatLabels = '';
+
+    // 1. Build Inputs and Video Filters
+    validScenes.forEach((scene, i) => {
+      // stream_loop -1 ensures short videos are looped to fit the duration
+      ffmpegInputs += `-stream_loop -1 -i "${path.resolve(scene.path)}" `;
+      filterComplex += `[${i}:v]trim=duration=${scene.duration},setpts=PTS-STARTPTS,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=30,format=yuv420p[v${i}];`;
+      concatLabels += `[v${i}]`;
+    });
+
+    filterComplex += `${concatLabels}concat=n=${validScenes.length}:v=1:a=0[concatv];`;
+    filterComplex += `[concatv]subtitles=subtitle.ass[finalv]`;
 
     const absAudioFile = path.resolve(audioFile);
     const absOutputFile = path.resolve(outputFile);
-    const hasBgm = fs.existsSync('bgm.mp3');
-    const absBgm = hasBgm ? path.resolve('bgm.mp3') : '';
     
-    // Fallback: Jika audioFile tidak ada atau ukurannya 0, render video tanpa suara narator
-    let hasAudio = false;
-    if (fs.existsSync(absAudioFile) && fs.statSync(absAudioFile).size > 0) {
-      hasAudio = true;
-    } else {
-      console.warn('   [WARNING] File audio narator tidak valid. Video akan dirender tanpa suara narator (hanya BGM jika ada).');
-    }
+    let hasAudio = fs.existsSync(absAudioFile) && fs.statSync(absAudioFile).size > 0;
     
-    let ffmpegSingleCmd;
-    if (hasBgm && hasAudio) {
-      console.log('   [INFO] Ditemukan bgm.mp3! Menambahkan musik latar (BGM)...');
-      ffmpegSingleCmd = `cd workspace/temp && ffmpeg -f concat -safe 0 -i list.txt -i "${absAudioFile}" -stream_loop -1 -i "${absBgm}" -filter_complex "[2:a]volume=0.1[bgm];[1:a][bgm]amix=inputs=2:duration=first[a];[0:v]subtitles=subtitle.ass[v]" -map "[v]" -map "[a]" -c:v libx264 -c:a aac -ac 2 -b:a 128k -shortest -y "${absOutputFile}"`;
-    } else if (hasAudio) {
-      ffmpegSingleCmd = `cd workspace/temp && ffmpeg -f concat -safe 0 -i list.txt -i "${absAudioFile}" -filter_complex "[0:v]subtitles=subtitle.ass[v]" -map "[v]" -map 1:a:0 -c:v libx264 -c:a aac -ac 2 -b:a 128k -shortest -y "${absOutputFile}"`;
-    } else if (hasBgm) {
-      // Tidak ada audio narator, tapi ada BGM
-      console.log('   [INFO] Ditemukan bgm.mp3! Menambahkan musik latar (BGM) (Tanpa narasi)...');
-      ffmpegSingleCmd = `cd workspace/temp && ffmpeg -f concat -safe 0 -i list.txt -stream_loop -1 -i "${absBgm}" -filter_complex "[0:v]subtitles=subtitle.ass[v]" -map "[v]" -map 1:a:0 -c:v libx264 -c:a aac -ac 2 -b:a 128k -shortest -y "${absOutputFile}"`;
-    } else {
-      // Tidak ada audio sama sekali
-      ffmpegSingleCmd = `cd workspace/temp && ffmpeg -f concat -safe 0 -i list.txt -filter_complex "[0:v]subtitles=subtitle.ass[v]" -map "[v]" -c:v libx264 -shortest -y "${absOutputFile}"`;
+    let audioFilters = '';
+    let inputIndex = validScenes.length;
+    let mapAudio = '';
+
+    if (hasAudio) {
+      ffmpegInputs += `-i "${absAudioFile}" `;
+      filterComplex += `;[${inputIndex}:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[finala]`;
+      mapAudio = `-map "[finala]"`;
     }
 
-    console.log('   [INFO] Merender dan menggabungkan video, audio, dan subtitle dalam 1 tahap (Bisa memakan waktu beberapa menit)...');
-    await execPromise(ffmpegSingleCmd);
+    const ffmpegCmd = `cd workspace/temp && ffmpeg -y ${ffmpegInputs} -filter_complex "${filterComplex}" -map "[finalv]" ${mapAudio} -c:v ${encoder} -preset fast -b:v 4M -c:a aac -ac 2 -b:a 128k -shortest "${absOutputFile}"`;
+
+    console.log('   [INFO] Merender video (Single-Pass) dengan filter_complex...');
+    await execPromise(ffmpegCmd);
     
     console.log(`   [SUCCESS] RENDER SELESAI! Video tersimpan sebagai: ${outputFile}`);
   } catch (error) {
