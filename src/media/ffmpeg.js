@@ -1,48 +1,71 @@
 import fs from 'fs';
+import path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 const execPromise = promisify(exec);
 
 export async function renderVideo(adeganList, audioFile, outputFile) {
-  console.log('[4/4] Menjahit Audio dan Gambar menjadi Video MP4 (FFmpeg)...');
-
-  let concatText = '';
-  for (let i = 0; i < adeganList.length; i++) {
-    // Karena list.txt ada di workspace/temp, nama file cukup relative ke sana
-    concatText += `file 'adegan_${i + 1}.mp4'\n`;
-  }
-  
-  fs.writeFileSync('workspace/temp/list.txt', concatText);
-
-  const tempVideo = 'workspace/temp/temp_video.mp4';
-  
-  // Perhatikan: Karena subtitle.ass ada di workspace/temp, path subttles harus benar
-  const ffmpegVideoCmd = `cd workspace/temp && ffmpeg -f concat -safe 0 -i list.txt -c:v libx264 -vf "subtitles=subtitle.ass" -y temp_video.mp4`;
-  
-  // Penggabungan akhir: output dikembalikan ke root (atau workspace/output)
-  let ffmpegMergeCmd;
-  if (fs.existsSync('bgm.mp3')) {
-    console.log('   -> [INFO] Ditemukan bgm.mp3! Menambahkan musik latar (BGM) ala TikTok...');
-    ffmpegMergeCmd = `ffmpeg -i ${tempVideo} -i ${audioFile} -stream_loop -1 -i bgm.mp3 -filter_complex "[2:a]volume=0.1[bgm];[1:a][bgm]amix=inputs=2:duration=first[a]" -map 0:v:0 -map "[a]" -c:v copy -c:a aac -ac 2 -b:a 128k -shortest -y ${outputFile}`;
-  } else {
-    ffmpegMergeCmd = `ffmpeg -i ${tempVideo} -i ${audioFile} -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -ac 2 -b:a 128k -shortest -y ${outputFile}`;
-  }
+  console.log('[6/6] [INFO] Menjahit Audio dan Gambar menjadi Video MP4 (FFmpeg)...');
 
   try {
-    console.log('   -> Tahap 1: Merender urutan gambar (Bisa memakan waktu beberapa menit)...');
-    await execPromise(ffmpegVideoCmd);
+    let concatText = '';
+    let validScenes = 0;
     
-    console.log('   -> Tahap 2: Memasukkan audio ke dalam video...');
-    await execPromise(ffmpegMergeCmd);
+    // Pastikan adegan benar-benar ada (tidak di-skip karena error pexels)
+    for (let i = 0; i < adeganList.length; i++) {
+      const adeganPath = `workspace/temp/adegan_${i + 1}.mp4`;
+      if (fs.existsSync(adeganPath)) {
+        concatText += `file 'adegan_${i + 1}.mp4'\n`;
+        validScenes++;
+      } else {
+        console.warn(`   [WARNING] adegan_${i + 1}.mp4 tidak ditemukan, akan di-skip dalam proses render.`);
+      }
+    }
     
-    console.log(`   [OK] RENDER SELESAI! Video tersimpan sebagai: ${outputFile}`);
+    if (validScenes === 0) {
+      console.error('   [ERROR] Tidak ada satupun file video Pexels yang berhasil diunduh. Render dibatalkan.');
+      return;
+    }
+
+    fs.writeFileSync('workspace/temp/list.txt', concatText);
+
+    const absAudioFile = path.resolve(audioFile);
+    const absOutputFile = path.resolve(outputFile);
+    const hasBgm = fs.existsSync('bgm.mp3');
+    const absBgm = hasBgm ? path.resolve('bgm.mp3') : '';
+    
+    // Fallback: Jika audioFile tidak ada atau ukurannya 0, render video tanpa suara narator
+    let hasAudio = false;
+    if (fs.existsSync(absAudioFile) && fs.statSync(absAudioFile).size > 0) {
+      hasAudio = true;
+    } else {
+      console.warn('   [WARNING] File audio narator tidak valid. Video akan dirender tanpa suara narator (hanya BGM jika ada).');
+    }
+    
+    let ffmpegSingleCmd;
+    if (hasBgm && hasAudio) {
+      console.log('   [INFO] Ditemukan bgm.mp3! Menambahkan musik latar (BGM)...');
+      ffmpegSingleCmd = `cd workspace/temp && ffmpeg -f concat -safe 0 -i list.txt -i "${absAudioFile}" -stream_loop -1 -i "${absBgm}" -filter_complex "[2:a]volume=0.1[bgm];[1:a][bgm]amix=inputs=2:duration=first[a];[0:v]subtitles=subtitle.ass[v]" -map "[v]" -map "[a]" -c:v libx264 -c:a aac -ac 2 -b:a 128k -shortest -y "${absOutputFile}"`;
+    } else if (hasAudio) {
+      ffmpegSingleCmd = `cd workspace/temp && ffmpeg -f concat -safe 0 -i list.txt -i "${absAudioFile}" -filter_complex "[0:v]subtitles=subtitle.ass[v]" -map "[v]" -map 1:a:0 -c:v libx264 -c:a aac -ac 2 -b:a 128k -shortest -y "${absOutputFile}"`;
+    } else if (hasBgm) {
+      // Tidak ada audio narator, tapi ada BGM
+      console.log('   [INFO] Ditemukan bgm.mp3! Menambahkan musik latar (BGM) (Tanpa narasi)...');
+      ffmpegSingleCmd = `cd workspace/temp && ffmpeg -f concat -safe 0 -i list.txt -stream_loop -1 -i "${absBgm}" -filter_complex "[0:v]subtitles=subtitle.ass[v]" -map "[v]" -map 1:a:0 -c:v libx264 -c:a aac -ac 2 -b:a 128k -shortest -y "${absOutputFile}"`;
+    } else {
+      // Tidak ada audio sama sekali
+      ffmpegSingleCmd = `cd workspace/temp && ffmpeg -f concat -safe 0 -i list.txt -filter_complex "[0:v]subtitles=subtitle.ass[v]" -map "[v]" -c:v libx264 -shortest -y "${absOutputFile}"`;
+    }
+
+    console.log('   [INFO] Merender dan menggabungkan video, audio, dan subtitle dalam 1 tahap (Bisa memakan waktu beberapa menit)...');
+    await execPromise(ffmpegSingleCmd);
+    
+    console.log(`   [SUCCESS] RENDER SELESAI! Video tersimpan sebagai: ${outputFile}`);
   } catch (error) {
-    console.error(`   [ERROR] Gagal melakukan render video:`, error);
+    console.error(`   [ERROR] Gagal melakukan render video:`, error.message);
   } finally {
-    // Bersihkan seluruh file di workspace/temp/
     console.log('   [INFO] Membersihkan ruang kerja...');
     if (fs.existsSync('workspace/temp/list.txt')) fs.unlinkSync('workspace/temp/list.txt');
-    if (fs.existsSync(tempVideo)) fs.unlinkSync(tempVideo);
     if (fs.existsSync('workspace/temp/subtitle.ass')) fs.unlinkSync('workspace/temp/subtitle.ass');
     for (let i = 0; i < adeganList.length; i++) {
         const file = `workspace/temp/adegan_${i + 1}.mp4`;

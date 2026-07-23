@@ -1,77 +1,117 @@
-import fs from 'fs';
-import { exec } from 'child_process';
+import fs from 'fs/promises';
+import path from 'path';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
-const execPromise = promisify(exec);
 
-export async function generatePexelsVideos(adeganList, fallbackKeywords = ["nature", "cinematic"]) {
-  console.log('[3/3] Mengunduh aset video B-Roll (Pexels) untuk setiap adegan...');
-  const pexelsKey = process.env.PEXELS_API_KEY;
-  if (!pexelsKey) throw new Error("PEXELS_API_KEY belum diisi di .env");
-  
-  let usedVideoIds = []; // Mencegah video yang sama dipakai dua kali
+const execFileAsync = promisify(execFile);
 
-  for (let i = 0; i < adeganList.length; i++) {
-    const scene = adeganList[i];
-    // DURASI SUPER AKURAT (Dalam hitungan Milidetik, tanpa dibulatkan atau ditambah)
-    let durasi = scene.exactDuration || 5.0;
+const TEMP_DIR = 'workspace/temp';
+const MAX_CONCURRENT = 3;
 
-    let query = scene.keywords_visual.split(',')[0].trim();
-    
-    // AUTO-RETRY LOGIC PEXELS PINTAR & DINAMIS
-    let searchQueries = [
-      query,
-      query.split(' ')[0], // Coba kata pertamanya saja (lebih umum)
-      fallbackKeywords[0], // Fallback dinamis 1 (Sesuai tema artikel)
-      fallbackKeywords[1]  // Fallback dinamis 2 (Sesuai tema artikel)
-    ];
+async function fetchWithTimeout(url, options = {}, timeout = 15000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(id);
+  }
+}
 
-    let foundVideo = null;
+async function findBestVideo(searchQueries, minDuration, pexelsKey, usedVideoIds) {
+  for (const q of searchQueries) {
+    if (!q) continue;
+    console.log(`   [INFO] Mencari video untuk: ${q}`);
+    try {
+      const apiUrl = `https://api.pexels.com/videos/search?query=${encodeURIComponent(q)}&per_page=20&orientation=portrait`;
+      const response = await fetchWithTimeout(apiUrl, { headers: { Authorization: pexelsKey } });
+      if (!response.ok) continue;
 
-    for (let q of searchQueries) {
-      if (!q) continue;
-      const encodedQuery = encodeURIComponent(q);
-      const apiUrl = `https://api.pexels.com/videos/search?query=${encodedQuery}&per_page=15&orientation=portrait`;
-      
-      console.log(`   -> Mencari video Pexels adegan ${i + 1}: [${q}] ...`);
-      try {
-        const response = await fetch(apiUrl, { headers: { Authorization: pexelsKey } });
-        const data = await response.json();
-        if (data.videos && data.videos.length > 0) {
-            let unusedVideos = data.videos.filter(v => !usedVideoIds.includes(v.id) && v.duration >= durasi);
-            if (unusedVideos.length === 0) unusedVideos = data.videos.filter(v => !usedVideoIds.includes(v.id));
-            if (unusedVideos.length === 0) unusedVideos = data.videos;
-            
-            const randomVideoIndex = Math.floor(Math.random() * unusedVideos.length);                                                                                                                                                                 
-            foundVideo = unusedVideos[randomVideoIndex];
-            break; // Jika ketemu, hentikan loop pencarian (tidak perlu fallback)
-        }
-      } catch (e) {
-          console.error(`   [WARNING] Gagal menarik data Pexels untuk [${q}]`);
-      }
-    }
+      const data = await response.json();
+      if (!data.videos?.length) continue;
 
-    if (foundVideo) {
-        usedVideoIds.push(foundVideo.id);
-        let videoFile = foundVideo.video_files.find(v => v.quality === 'hd') || foundVideo.video_files[0];
-        const videoUrl = videoFile.link; 
+      const candidates = data.videos
+        .filter(v => !usedVideoIds.has(v.id))
+        .sort((a, b) => Math.abs(a.duration - minDuration) - Math.abs(b.duration - minDuration));
 
-        console.log(`   -> Mengunduh video Pexels untuk adegan ${i + 1}...`);
-        const vidResponse = await fetch(videoUrl);
-        const arrayBuffer = await vidResponse.arrayBuffer();
-        
-        // Taruh di folder temp
-        const rawFilename = `workspace/temp/raw_adegan_${i + 1}.mp4`;
-        fs.writeFileSync(rawFilename, Buffer.from(arrayBuffer));
-
-        console.log(`   -> Menyeragamkan resolusi video adegan ${i + 1} tepat ${durasi} detik...`);
-        const finalFilename = `workspace/temp/adegan_${i + 1}.mp4`;
-        const formatCmd = `ffmpeg -y -stream_loop -1 -i ${rawFilename} -t ${durasi} -vf "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=30,eq=contrast=1.15:saturation=1.2:brightness=-0.02" -c:v libx264 -an ${finalFilename}`;
-        await execPromise(formatCmd);
-        
-        if (fs.existsSync(rawFilename)) fs.unlinkSync(rawFilename); // Hapus raw file
-        console.log(`   [OK] Tersimpan dan diformat: ${finalFilename}`);
-    } else {
-        console.log(`   [ERROR] Seluruh pencarian dan fallback gagal. Video tidak ditemukan.`);
+      if (candidates.length > 0) return candidates[0];
+    } catch (err) {
+      console.warn(`   [WARNING] Gagal melakukan pencarian untuk: ${q} (${err.message})`);
     }
   }
+  return null;
+}
+
+async function downloadFile(url, filepath) {
+  const response = await fetchWithTimeout(url);
+  if (!response.ok) throw new Error(`Download gagal: ${response.status}`);
+  const buffer = Buffer.from(await response.arrayBuffer());
+  await fs.writeFile(filepath, buffer);
+}
+
+async function formatVideo(input, output, duration) {
+  const args = [
+    '-y', '-stream_loop', '-1', '-i', input, '-t', String(duration),
+    '-vf', 'scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=30,eq=contrast=1.12:saturation=1.15:brightness=-0.01',
+    '-c:v', 'libx264', '-preset', 'fast', '-crf', '22', '-pix_fmt', 'yuv420p', '-an', output
+  ];
+  await execFileAsync('ffmpeg', args);
+}
+
+async function processScene(scene, index, fallbackKeywords, pexelsKey, usedVideoIds) {
+  try {
+    const duration = Number(scene.exactDuration ?? 5);
+    const baseQuery = scene.keywords_visual?.split(',')[0]?.trim()?.toLowerCase();
+    const searchQueries = [...new Set([baseQuery, baseQuery?.split(' ').slice(0, 2).join(' '), ...fallbackKeywords].filter(Boolean))];
+
+    const video = await findBestVideo(searchQueries, duration, pexelsKey, usedVideoIds);
+
+    if (!video) {
+      console.warn(`   [WARNING] Adegan ${index + 1}: video Pexels tidak ditemukan. Akan dilewati.`);
+      return null;
+    }
+
+    usedVideoIds.add(video.id);
+
+    const videoFile = video.video_files.find(v => v.quality === 'hd') ?? video.video_files.find(v => v.width >= 1080) ?? video.video_files[0];
+    const rawPath = path.join(TEMP_DIR, `raw_adegan_${index + 1}.mp4`);
+    const finalPath = path.join(TEMP_DIR, `adegan_${index + 1}.mp4`);
+
+    console.log(`   [INFO] Mengunduh adegan ${index + 1}...`);
+    await downloadFile(videoFile.link, rawPath);
+
+    console.log(`   [INFO] Memformat adegan ${index + 1} dengan FFmpeg...`);
+    await formatVideo(rawPath, finalPath, duration);
+
+    await fs.unlink(rawPath).catch(() => {});
+    console.log(`   [SUCCESS] Adegan ${index + 1} siap: ${finalPath}`);
+    return finalPath;
+  } catch (error) {
+    console.error(`   [ERROR] Gagal memproses adegan ${index + 1}:`, error.message);
+    return null;
+  }
+}
+
+export async function generatePexelsVideos(adeganList, fallbackKeywords = ['nature', 'cinematic']) {
+  console.log('[3/6] [INFO] Mengunduh aset video B-Roll (Pexels)...');
+  const pexelsKey = process.env.PEXELS_API_KEY;
+
+  if (!pexelsKey) {
+    console.error('[ERROR] PEXELS_API_KEY belum diisi. Melewati pengunduhan Pexels.');
+    return [];
+  }
+
+  await fs.mkdir(TEMP_DIR, { recursive: true });
+  const usedVideoIds = new Set();
+  const results = [];
+
+  for (let i = 0; i < adeganList.length; i += MAX_CONCURRENT) {
+    const batch = adeganList.slice(i, i + MAX_CONCURRENT);
+    const batchResults = await Promise.all(
+      batch.map((scene, idx) => processScene(scene, i + idx, fallbackKeywords, pexelsKey, usedVideoIds))
+    );
+    results.push(...batchResults);
+  }
+
+  return results.filter(Boolean);
 }

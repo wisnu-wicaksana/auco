@@ -5,28 +5,23 @@ import 'dotenv/config';
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 export async function generateSubtitle(audioFile) {
-  console.log('[6/6] Whisper AI sedang menyalin audio menjadi Subtitle (.ass)...');
+  console.log('[4/6] [INFO] Whisper AI menyalin audio menjadi Subtitle (.ass)...');
   
+  const fallbackSubtitle = `[Script Info]\nScriptType: v4.00+\nPlayResX: 1080\nPlayResY: 1920\n\n[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\nStyle: Default,Arial Black,70,&H0000FFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,8,4,2,10,10,250,1\n\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\nDialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,, \n`;
+
   try {
+    if (!fs.existsSync(audioFile) || fs.statSync(audioFile).size === 0) {
+      throw new Error("File audio tidak ditemukan atau ukurannya kosong.");
+    }
+
     const transcription = await groq.audio.transcriptions.create({
       file: fs.createReadStream(audioFile),
       model: "whisper-large-v3",
       response_format: "verbose_json",
-      language: "id" // Paksa bahasa Indonesia
+      language: "id"
     });
 
-    let assContent = `[Script Info]
-ScriptType: v4.00+
-PlayResX: 1080
-PlayResY: 1920
-
-[V4+ Styles]
-Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Arial Black,70,&H0000FFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,8,4,2,10,10,250,1
-
-[Events]
-Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-`;
+    let assContent = `[Script Info]\nScriptType: v4.00+\nPlayResX: 1080\nPlayResY: 1920\n\n[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\nStyle: Default,Arial Black,70,&H0000FFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,8,4,2,10,10,250,1\n\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n`;
     
     if (transcription.segments) {
       transcription.segments.forEach((segment) => {
@@ -62,8 +57,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     }
 
     fs.writeFileSync('workspace/temp/subtitle.ass', assContent);
-    console.log('   [OK] Subtitle tersimpan di: workspace/temp/subtitle.ass');
+    console.log('   [SUCCESS] Subtitle tersimpan di: workspace/temp/subtitle.ass');
   } catch (error) {
-    console.error('   [ERROR] Gagal membuat subtitle:', error);
+    console.error('   [ERROR] Gagal membuat subtitle:', error.message);
+    console.warn('   [WARNING] Menggunakan subtitle kosong sebagai fallback...');
+    fs.writeFileSync('workspace/temp/subtitle.ass', fallbackSubtitle);
   }
 }
