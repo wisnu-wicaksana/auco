@@ -5,7 +5,7 @@ import 'dotenv/config';
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 export async function generateSubtitle(audioFile) {
-  console.log('📝 [6/6] Whisper AI sedang menyalin audio menjadi Subtitle (.ass)...');
+  console.log('[6/6] Whisper AI sedang menyalin audio menjadi Subtitle (.ass)...');
   
   try {
     const transcription = await groq.audio.transcriptions.create({
@@ -62,8 +62,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     }
 
     fs.writeFileSync('workspace/temp/subtitle.ass', assContent);
-    console.log('   ✅ Subtitle tersimpan di: workspace/temp/subtitle.ass');
+    console.log('   [OK] Subtitle tersimpan di: workspace/temp/subtitle.ass');
   } catch (error) {
-    console.error('   ❌ Gagal membuat subtitle:', error);
+    console.error('   [ERROR] Gagal membuat subtitle:', error);
   }
 }

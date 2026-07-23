@@ -4,7 +4,7 @@ import { promisify } from 'util';
 const execPromise = promisify(exec);
 
 export async function generatePexelsVideos(adeganList, fallbackKeywords = ["nature", "cinematic"]) {
-  console.log('🎥 [3/3] Mengunduh aset video B-Roll (Pexels) untuk setiap adegan...');
+  console.log('[3/3] Mengunduh aset video B-Roll (Pexels) untuk setiap adegan...');
   const pexelsKey = process.env.PEXELS_API_KEY;
   if (!pexelsKey) throw new Error("PEXELS_API_KEY belum diisi di .env");
   
@@ -12,7 +12,8 @@ export async function generatePexelsVideos(adeganList, fallbackKeywords = ["natu
 
   for (let i = 0; i < adeganList.length; i++) {
     const scene = adeganList[i];
-    let durasi = Math.ceil(scene.exactDuration || 10) + 1;
+    // DURASI SUPER AKURAT (Dalam hitungan Milidetik, tanpa dibulatkan atau ditambah)
+    let durasi = scene.exactDuration || 5.0;
 
     let query = scene.keywords_visual.split(',')[0].trim();
     
@@ -45,7 +46,7 @@ export async function generatePexelsVideos(adeganList, fallbackKeywords = ["natu
             break; // Jika ketemu, hentikan loop pencarian (tidak perlu fallback)
         }
       } catch (e) {
-          console.error(`   ⚠️ Gagal menarik data Pexels untuk [${q}]`);
+          console.error(`   [WARNING] Gagal menarik data Pexels untuk [${q}]`);
       }
     }
 
@@ -68,9 +69,9 @@ export async function generatePexelsVideos(adeganList, fallbackKeywords = ["natu
         await execPromise(formatCmd);
         
         if (fs.existsSync(rawFilename)) fs.unlinkSync(rawFilename); // Hapus raw file
-        console.log(`   ✅ Tersimpan dan diformat: ${finalFilename}`);
+        console.log(`   [OK] Tersimpan dan diformat: ${finalFilename}`);
     } else {
-        console.log(`   ❌ Seluruh pencarian dan fallback gagal. Video tidak ditemukan.`);
+        console.log(`   [ERROR] Seluruh pencarian dan fallback gagal. Video tidak ditemukan.`);
     }
   }
 }

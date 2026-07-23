@@ -5,7 +5,7 @@ import fs from 'fs';
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 export async function generateScript(textArticle) {
-  console.log('🧠 [1/3] Memproses naskah dengan Groq Llama 3 API (Pengganti Gemini)...');
+  console.log('[1/3] Memproses naskah dengan Groq Llama 3 API (Pengganti Gemini)...');
 
   const prompt = `
 Ubah artikel berikut menjadi naskah video pendek TikTok/Reels.
@@ -42,7 +42,7 @@ PENTING: Kembalikan jawaban HANYA dalam format JSON valid tanpa format markdown 
 }
 
 export async function generateCaption(narasi) {
-  console.log('⚡ [5/6] Groq (Llama 3) sedang menulis Caption TikTok/Reels...');
+  console.log('[5/6] Groq (Llama 3) sedang menulis Caption TikTok/Reels...');
   
   const prompt = `
 Saya punya video dengan narasi berikut: "${narasi}".
@@ -56,6 +56,6 @@ Buatkan caption TikTok yang sangat mengundang interaksi (engagement), gunakan ba
 
   const caption = chatCompletion.choices[0]?.message?.content || "";
   fs.writeFileSync('workspace/output/CAPTION_TIKTOK.txt', caption);
-  console.log('\n💬 Hasil Caption TikTok/Reels:\n----------------------------------\n' + caption + '\n----------------------------------\n');
-  console.log('   ✅ Caption tersimpan di: workspace/output/CAPTION_TIKTOK.txt');
+  console.log('\n[INFO] Hasil Caption TikTok/Reels:\n----------------------------------\n' + caption + '\n----------------------------------\n');
+  console.log('   [OK] Caption tersimpan di: workspace/output/CAPTION_TIKTOK.txt');
 }

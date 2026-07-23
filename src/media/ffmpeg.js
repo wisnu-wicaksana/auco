@@ -4,7 +4,7 @@ import { promisify } from 'util';
 const execPromise = promisify(exec);
 
 export async function renderVideo(adeganList, audioFile, outputFile) {
-  console.log('🎬 [4/4] Menjahit Audio dan Gambar menjadi Video MP4 (FFmpeg)...');
+  console.log('[4/4] Menjahit Audio dan Gambar menjadi Video MP4 (FFmpeg)...');
 
   let concatText = '';
   for (let i = 0; i < adeganList.length; i++) {
@@ -22,7 +22,7 @@ export async function renderVideo(adeganList, audioFile, outputFile) {
   // Penggabungan akhir: output dikembalikan ke root (atau workspace/output)
   let ffmpegMergeCmd;
   if (fs.existsSync('bgm.mp3')) {
-    console.log('   -> 🎵 Ditemukan bgm.mp3! Menambahkan musik latar (BGM) ala TikTok...');
+    console.log('   -> [INFO] Ditemukan bgm.mp3! Menambahkan musik latar (BGM) ala TikTok...');
     ffmpegMergeCmd = `ffmpeg -i ${tempVideo} -i ${audioFile} -stream_loop -1 -i bgm.mp3 -filter_complex "[2:a]volume=0.1[bgm];[1:a][bgm]amix=inputs=2:duration=first[a]" -map 0:v:0 -map "[a]" -c:v copy -c:a aac -ac 2 -b:a 128k -shortest -y ${outputFile}`;
   } else {
     ffmpegMergeCmd = `ffmpeg -i ${tempVideo} -i ${audioFile} -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -ac 2 -b:a 128k -shortest -y ${outputFile}`;
@@ -35,12 +35,12 @@ export async function renderVideo(adeganList, audioFile, outputFile) {
     console.log('   -> Tahap 2: Memasukkan audio ke dalam video...');
     await execPromise(ffmpegMergeCmd);
     
-    console.log(`   ✅ RENDER SELESAI! Video tersimpan sebagai: ${outputFile}`);
+    console.log(`   [OK] RENDER SELESAI! Video tersimpan sebagai: ${outputFile}`);
   } catch (error) {
-    console.error(`   ❌ Gagal melakukan render video:`, error);
+    console.error(`   [ERROR] Gagal melakukan render video:`, error);
   } finally {
     // Bersihkan seluruh file di workspace/temp/
-    console.log('   🧹 Membersihkan ruang kerja...');
+    console.log('   [INFO] Membersihkan ruang kerja...');
     if (fs.existsSync('workspace/temp/list.txt')) fs.unlinkSync('workspace/temp/list.txt');
     if (fs.existsSync(tempVideo)) fs.unlinkSync(tempVideo);
     if (fs.existsSync('workspace/temp/subtitle.ass')) fs.unlinkSync('workspace/temp/subtitle.ass');
