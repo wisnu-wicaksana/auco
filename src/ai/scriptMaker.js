@@ -109,8 +109,9 @@ ATURAN WAJIB:
 4. Tidak boleh ada komentar di dalam JSON.
 5. Total narasi maksimal 150 kata.
 6. Setiap adegan maksimal 25 kata.
-7. Hook (kalimat pertama) maksimal 12 kata, memancing rasa penasaran tinggi, cepat, dan pacing ala TikTok.
-8. Keywords visual: MAKSIMAL 2 kata dalam bahasa Inggris. Kata pertama WAJIB subjek, kata kedua aksi sederhana.
+7. Hook (kalimat pertama adegan pertama) maksimal 12 kata, WAJIB diawali dengan frasa pembuka yang menarik seperti "Tahukah kamu...", "Pernahkah kamu membayangkan...", atau "Ternyata...".
+8. Kalimat penutup (di adegan terakhir) WAJIB berupa ajakan interaktif (Call to Action) atau pertanyaan seperti "Bagaimana menurutmu?", "Coba tulis pendapatmu di komentar!", atau "Menurut kalian gimana?".
+9. Keywords visual: MAKSIMAL 2 kata dalam bahasa Inggris. Kata pertama WAJIB subjek, kata kedua aksi sederhana.
    CONTOH VALID: "lion", "lion walking", "dog running", "woman reading", "chef cooking".
    CONTOH TIDAK VALID: "lion in africa", "lion with sunset", "lion hunting zebra", "woman reading newspaper indoors".
 
@@ -176,11 +177,11 @@ CONTOH JSON YANG BENAR:
     const requestGemini = async () => {
       const response = await withTimeout(
         gemini.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: 'gemini-3.5-flash',
           contents: prompt,
           config: {
             responseMimeType: 'application/json',
-            temperature: 0.7
+            temperature: 0.9
           }
         }), 
         30000
@@ -257,7 +258,7 @@ ATURAN:
     const requestGemini = async () => {
       const response = await withTimeout(
         gemini.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: 'gemini-3.5-flash',
           contents: prompt,
           config: {
             temperature: 0.9
