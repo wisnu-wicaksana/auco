@@ -1,15 +1,25 @@
 import Groq from 'groq-sdk';
+import { GoogleGenAI } from '@google/genai';
 import 'dotenv/config';
 import fs from 'fs/promises';
 import path from 'path';
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 // ==========================================
 // HELPERS
 // ==========================================
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const withTimeout = (promise, ms) => {
+  let timeoutId;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error('Timeout dari API (Melebihi batas waktu)')), ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId));
+};
 
 const safeJsonParse = (jsonString) => {
   try {
@@ -28,9 +38,9 @@ const saveJson = async (data, filepath) => {
     const dir = path.dirname(filepath);
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(filepath, JSON.stringify(data, null, 2));
-    console.log(`[SUCCESS] Naskah tersimpan di: ${filepath}`);
+    console.log(`   [SUCCESS] Naskah tersimpan di: ${filepath}`);
   } catch (error) {
-    console.error(`[ERROR] Gagal menyimpan file ${filepath}:`, error.message);
+    console.error(`   [ERROR] Gagal menyimpan file ${filepath}:`, error.message);
   }
 };
 
@@ -49,7 +59,7 @@ const validateScript = (data) => {
   return true;
 };
 
-const retryRequest = async (requestFn, maxRetries = 3) => {
+const retryRequest = async (requestFn, maxRetries = 2) => {
   let attempt = 0;
   
   while (attempt <= maxRetries) {
@@ -59,21 +69,20 @@ const retryRequest = async (requestFn, maxRetries = 3) => {
       attempt++;
       
       const isRateLimit = error.status === 429;
-      const isTimeout = error.name === 'AbortError' || error.message.toLowerCase().includes('timeout');
+      const isTimeout = error.name === 'AbortError' || error.message?.toLowerCase().includes('timeout');
       const isNetworkError = error.code === 'ECONNRESET' || error.code === 'ENOTFOUND' || error.code === 'ETIMEDOUT';
+      const isApiError = error.message?.toLowerCase().includes('fetch failed') || error.message?.toLowerCase().includes('internal server error') || error.message?.toLowerCase().includes('overloaded');
       
-      if (isRateLimit || isTimeout || isNetworkError) {
+      if (isRateLimit || isTimeout || isNetworkError || isApiError) {
         if (attempt > maxRetries) {
-          console.error(`[ERROR] Maksimal retry (${maxRetries}x) tercapai. Proses dihentikan.`);
           throw error;
         }
         
-        const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 2s, 4s, 8s
-        console.warn(`[WARNING] Request gagal (Percobaan ${attempt}/${maxRetries}). Menunggu ${delay}ms sebelum mencoba lagi...`);
-        console.warn(`[INFO] Detail error: ${error.message}`);
+        const delay = Math.pow(2, attempt) * 1000;
+        console.warn(`   [WARNING] Request gagal (Percobaan ${attempt}/${maxRetries}). Menunggu ${delay}ms sebelum mencoba lagi...`);
+        console.warn(`   [INFO] Detail error: ${error.message}`);
         await sleep(delay);
       } else {
-        // Jangan retry untuk error selain 429, timeout, atau network error
         throw error;
       }
     }
@@ -85,7 +94,7 @@ const retryRequest = async (requestFn, maxRetries = 3) => {
 // ==========================================
 
 export async function generateScript(textArticle) {
-  console.log('[1/6] [INFO] Memproses naskah dengan Groq Llama 3 API...');
+  console.log('[1/6] [INFO] Memproses naskah dengan AI (Gemini Utama, Groq Penunjang)...');
 
   const prompt = `
 Ubah artikel berikut menjadi naskah video pendek TikTok/Reels.
@@ -160,47 +169,74 @@ CONTOH JSON YANG BENAR:
 }
 `;
 
-  try {
-    const requestFn = async () => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 detik timeout
+  let scriptData = null;
 
-      try {
-        const response = await groq.chat.completions.create({
-          messages: [
-            { role: "system", content: "You are a helpful assistant that strictly outputs valid JSON only without markdown formatting." },
-            { role: "user", content: prompt }
-          ],
-          model: 'llama-3.3-70b-versatile',
-          temperature: 0.7,
-        }, { signal: controller.signal });
-        
-        return response;
-      } finally {
-        clearTimeout(timeoutId);
-      }
+  try {
+    console.log('   [INFO] [AI-1] Mencoba generate naskah dengan Google Gemini...');
+    const requestGemini = async () => {
+      const response = await withTimeout(
+        gemini.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: prompt,
+          config: {
+            responseMimeType: 'application/json',
+            temperature: 0.7
+          }
+        }), 
+        30000
+      );
+      return typeof response.text === 'function' ? response.text() : response.text;
     };
 
-    const response = await retryRequest(requestFn, 3);
-    const cleanJsonText = response.choices[0]?.message?.content || "{}";
-    
-    const scriptData = safeJsonParse(cleanJsonText);
-    
-    console.log('[INFO] Memvalidasi struktur JSON naskah...');
+    const responseText = await retryRequest(requestGemini, 1);
+    scriptData = safeJsonParse(responseText);
     validateScript(scriptData);
-    
-    await saveJson(scriptData, 'workspace/output/script.json');
-    console.log('[SUCCESS] Naskah berhasil dibuat dan divalidasi!');
-    
-    return scriptData;
+    console.log('   [SUCCESS] Naskah berhasil dibuat menggunakan Gemini!');
+
   } catch (error) {
-    console.error('\n[ERROR] Terjadi kesalahan fatal pada generateScript:', error.message);
-    throw error;
+    console.warn(`   [WARNING] Gemini gagal diproses (${error.message}). Mengalihkan ke Groq (Llama 3)...`);
+    
+    try {
+      console.log('   [INFO] [AI-2] Mencoba generate naskah dengan Groq (Fallback)...');
+      const requestGroq = async () => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+        try {
+          const response = await groq.chat.completions.create({
+            messages: [
+              { role: "system", content: "You are a helpful assistant that strictly outputs valid JSON only without markdown formatting." },
+              { role: "user", content: prompt }
+            ],
+            model: 'llama-3.3-70b-versatile',
+            temperature: 0.7,
+          }, { signal: controller.signal });
+          return response.choices[0]?.message?.content || "{}";
+        } finally {
+          clearTimeout(timeoutId);
+        }
+      };
+
+      const responseText = await retryRequest(requestGroq, 1);
+      scriptData = safeJsonParse(responseText);
+      validateScript(scriptData);
+      console.log('   [SUCCESS] Naskah berhasil dibuat menggunakan Groq (Fallback)!');
+      
+    } catch (groqError) {
+      console.error('\n[ERROR] Kesalahan fatal: Kedua sistem AI (Gemini & Groq) gagal menghasilkan naskah.');
+      console.error('   -> Error Gemini:', error.message);
+      console.error('   -> Error Groq:', groqError.message);
+      throw new Error('Semua AI gagal menghasilkan naskah.');
+    }
   }
+
+  await saveJson(scriptData, 'workspace/output/script.json');
+  console.log('[INFO] Struktur JSON naskah valid:\n', JSON.stringify(scriptData, null, 2));
+  
+  return scriptData;
 }
 
 export async function generateCaption(narasi) {
-  console.log('[5/6] [INFO] Groq sedang menulis Caption TikTok/Reels...');
+  console.log('[5/6] [INFO] AI sedang menulis Caption TikTok/Reels...');
   
   const prompt = `
 Saya punya video dengan narasi berikut: "${narasi}".
@@ -214,38 +250,63 @@ ATURAN:
 - Sertakan 3-5 hashtag yang relevan di akhir.
 `;
 
-  try {
-    const requestFn = async () => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
+  let caption = "";
 
-      try {
-        const response = await groq.chat.completions.create({
-          messages: [{ role: 'user', content: prompt }],
-          model: 'llama-3.3-70b-versatile',
-          temperature: 0.9,
-        }, { signal: controller.signal });
-        
-        return response;
-      } finally {
-        clearTimeout(timeoutId);
-      }
+  try {
+    console.log('   [INFO] [AI-1] Mencoba membuat caption dengan Google Gemini...');
+    const requestGemini = async () => {
+      const response = await withTimeout(
+        gemini.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: prompt,
+          config: {
+            temperature: 0.9
+          }
+        }), 
+        20000
+      );
+      return typeof response.text === 'function' ? response.text() : response.text;
     };
 
-    const response = await retryRequest(requestFn, 3);
-    const caption = response.choices[0]?.message?.content || "";
-    
-    const captionPath = 'workspace/output/CAPTION_TIKTOK.txt';
-    await fs.mkdir(path.dirname(captionPath), { recursive: true });
-    await fs.writeFile(captionPath, caption);
-    
-    console.log('\n[INFO] Hasil Caption TikTok/Reels:\n----------------------------------\n' + caption + '\n----------------------------------\n');
-    console.log(`[SUCCESS] Caption tersimpan di: ${captionPath}`);
-    
-    return caption;
+    caption = await retryRequest(requestGemini, 1);
+    console.log('   [SUCCESS] Caption berhasil dibuat menggunakan Gemini!');
+
   } catch (error) {
-    console.error('\n[ERROR] Terjadi kesalahan saat membuat caption:', error.message);
-    console.warn('[WARNING] Menggunakan caption default sebagai fallback.');
-    return "Tonton video ini sampai habis ya! Gimana pendapat kalian? 👇 #video #faktaunik";
+    console.warn(`   [WARNING] Gemini gagal membuat caption (${error.message}). Mengalihkan ke Groq...`);
+    
+    try {
+      console.log('   [INFO] [AI-2] Mencoba membuat caption dengan Groq (Fallback)...');
+      const requestGroq = async () => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 20000);
+        try {
+          const response = await groq.chat.completions.create({
+            messages: [{ role: 'user', content: prompt }],
+            model: 'llama-3.3-70b-versatile',
+            temperature: 0.9,
+          }, { signal: controller.signal });
+          return response.choices[0]?.message?.content || "";
+        } finally {
+          clearTimeout(timeoutId);
+        }
+      };
+
+      caption = await retryRequest(requestGroq, 1);
+      console.log('   [SUCCESS] Caption berhasil dibuat menggunakan Groq (Fallback)!');
+      
+    } catch (groqError) {
+      console.error('\n[ERROR] Kedua AI gagal membuat caption:', groqError.message);
+      console.warn('   [WARNING] Menggunakan caption default sebagai fallback.');
+      caption = "Tonton video ini sampai habis ya! Gimana pendapat kalian? 👇 #video #faktaunik";
+    }
   }
+
+  const captionPath = 'workspace/output/CAPTION_TIKTOK.txt';
+  await fs.mkdir(path.dirname(captionPath), { recursive: true });
+  await fs.writeFile(captionPath, caption);
+  
+  console.log('\n[INFO] Hasil Caption TikTok/Reels:\n----------------------------------\n' + caption + '\n----------------------------------\n');
+  console.log(`   [SUCCESS] Caption tersimpan di: ${captionPath}`);
+  
+  return caption;
 }
