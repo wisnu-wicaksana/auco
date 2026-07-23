@@ -4,7 +4,7 @@
   "description": "",
   "type": "module",
   "bin": {
-    "auco": "./index.js"
+    "auco": "./bin/auco.js"
   },
   "main": "index.js",
   "scripts": {
