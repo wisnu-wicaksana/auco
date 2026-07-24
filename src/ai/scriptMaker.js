@@ -33,8 +33,10 @@ const validateScript = (data) => {
 export async function generateScript(textArticle, targetLanguage = 'English') {
   logger.step(1, 'Processing script with AI (Primary: Gemini, Fallback: Groq)...');
 
-  const prompt = `
-Convert the following article into a short video script for TikTok/Reels in ${targetLanguage}.
+const prompt = `
+CRITICAL INSTRUCTION: The ENTIRE output (title, hook, full_narration, and scene narrations) MUST be written EXCLUSIVELY in ${targetLanguage.toUpperCase()}. DO NOT mix languages!
+
+Convert the following article into a short video script for TikTok/Reels.
 
 Article:
 ${textArticle}
@@ -46,9 +48,9 @@ MANDATORY RULES:
 4. No comments inside the JSON.
 5. Total narration maximum 150 words.
 6. Each scene maximum 25 words.
-7. Hook (first sentence of the first scene) maximum 12 words, MUST start with an engaging phrase like "Did you know...", "Have you ever wondered...", or "It turns out...".
-8. The closing sentence (in the last scene) MUST be an interactive Call to Action or a question like "What do you think?", "Let me know in the comments!", or "Drop your thoughts below!".
-9. Visual keywords: MAXIMUM 2 words in English. The first word MUST be a subject, the second word a simple action.
+7. Hook (first sentence of the first scene) maximum 12 words. It MUST start with an engaging phrase translated natively into ${targetLanguage.toUpperCase()} (equivalent to "Did you know...", "Have you ever wondered...", or "It turns out...").
+8. The closing sentence (in the last scene) MUST be an interactive Call to Action translated natively into ${targetLanguage.toUpperCase()} (equivalent to "What do you think?", "Let me know in the comments!").
+9. Visual keywords: MAXIMUM 2 words strictly in English (for stock footage search). The first word MUST be a subject, the second word a simple action.
    VALID EXAMPLES: "lion", "lion walking", "dog running", "woman reading", "chef cooking".
    INVALID EXAMPLES: "lion in africa", "lion with sunset", "lion hunting zebra", "woman reading newspaper indoors".
 
@@ -144,10 +146,10 @@ export async function generateCaption(narration, targetLanguage = 'English') {
   const prompt = `
 I have a video with the following narration: "${narration}".
 
-Please create a TikTok caption in ${targetLanguage}.
+Please create a TikTok caption strictly and exclusively in ${targetLanguage.toUpperCase()}.
 RULES:
 - Maximum 2 sentences.
-- Use casual, engaging English that encourages comments.
+- Use casual, engaging language native to ${targetLanguage.toUpperCase()} that encourages comments.
 - Must contain 1 question at the end.
 - Do not use too many emojis (maximum 2).
 - Include 3-5 relevant hashtags at the end.
