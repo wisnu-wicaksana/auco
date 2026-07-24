@@ -12,16 +12,18 @@ const execPromise = promisify(exec);
 
 function getVoiceSettings(lang) {
   const l = (lang || '').toLowerCase();
-  if (l.includes('indonesia')) return { voice: 'id-ID-GadisNeural', lang: 'id-ID' };
-  if (l.includes('spanish') || l.includes('spanyol')) return { voice: 'es-ES-AlvaroNeural', lang: 'es-ES' };
-  if (l.includes('french') || l.includes('prancis')) return { voice: 'fr-FR-HenriNeural', lang: 'fr-FR' };
-  if (l.includes('german') || l.includes('jerman')) return { voice: 'de-DE-ConradNeural', lang: 'de-DE' };
-  if (l.includes('japanese') || l.includes('jepang')) return { voice: 'ja-JP-KeitaNeural', lang: 'ja-JP' };
-  if (l.includes('korean') || l.includes('korea')) return { voice: 'ko-KR-InJoonNeural', lang: 'ko-KR' };
-  if (l.includes('chinese') || l.includes('mandarin')) return { voice: 'zh-CN-YunxiNeural', lang: 'zh-CN' };
-  if (l.includes('russian') || l.includes('rusia')) return { voice: 'ru-RU-DmitryNeural', lang: 'ru-RU' };
-  if (l.includes('arabic') || l.includes('arab')) return { voice: 'ar-SA-HamedNeural', lang: 'ar-SA' };
-  if (l.includes('hindi') || l.includes('india')) return { voice: 'hi-IN-MadhurNeural', lang: 'hi-IN' };
+  
+  if (l.includes('indo') || l === 'id') return { voice: 'id-ID-GadisNeural', lang: 'id-ID' };
+  if (l.includes('spanish') || l.includes('spanyol') || l === 'es') return { voice: 'es-ES-AlvaroNeural', lang: 'es-ES' };
+  if (l.includes('french') || l.includes('prancis') || l === 'fr') return { voice: 'fr-FR-HenriNeural', lang: 'fr-FR' };
+  if (l.includes('german') || l.includes('jerman') || l === 'de') return { voice: 'de-DE-ConradNeural', lang: 'de-DE' };
+  if (l.includes('japanese') || l.includes('jepang') || l === 'ja') return { voice: 'ja-JP-KeitaNeural', lang: 'ja-JP' };
+  if (l.includes('korean') || l.includes('korea') || l === 'ko') return { voice: 'ko-KR-InJoonNeural', lang: 'ko-KR' };
+  if (l.includes('chinese') || l.includes('mandarin') || l === 'zh') return { voice: 'zh-CN-YunxiNeural', lang: 'zh-CN' };
+  if (l.includes('russian') || l.includes('rusia') || l === 'ru') return { voice: 'ru-RU-DmitryNeural', lang: 'ru-RU' };
+  if (l.includes('arabic') || l.includes('arab') || l === 'ar') return { voice: 'ar-SA-HamedNeural', lang: 'ar-SA' };
+  if (l.includes('hindi') || l.includes('india') || l === 'hi') return { voice: 'hi-IN-MadhurNeural', lang: 'hi-IN' };
+  
   // Default fallback
   return { voice: 'en-US-ChristopherNeural', lang: 'en-US' };
 }
