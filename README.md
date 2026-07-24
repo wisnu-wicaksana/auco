@@ -1,4 +1,4 @@
-# AUCO - Auto Content Creator CLI
+# AUCO - Auto Content 
 
 AUCO is an intelligent Command Line Interface (CLI) application designed to automate the process of generating short-form video content (such as TikTok, Instagram Reels, and YouTube Shorts) from a simple text prompt or a news article URL.
 
