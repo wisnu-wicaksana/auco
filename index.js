@@ -28,15 +28,30 @@ function setupGracefulShutdown() {
   process.on('SIGTERM', cleanup);
 }
 
-async function askQuestion(query) {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
+async function askQuestion(query, multiline = false) {
+  return new Promise(resolve => {
+    if (!multiline) {
+      const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+      rl.question(query, ans => {
+        rl.close();
+        resolve(ans);
+      });
+      return;
+    }
+
+    process.stdout.write(query + '\n(You can paste long text. Type "DONE" on a new line and press Enter to finish)\n> ');
+    let input = '';
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    
+    rl.on('line', (line) => {
+      if (line.trim().toUpperCase() === 'DONE') {
+        rl.close();
+        resolve(input.trim());
+      } else {
+        input += line + '\n';
+      }
+    });
   });
-  return new Promise(resolve => rl.question(query, ans => {
-    rl.close();
-    resolve(ans);
-  }));
 }
 
 async function main() {
@@ -48,7 +63,7 @@ async function main() {
       logger.blank('\n=========================================');
       logger.blank(' AUCO - Auto Content Creator');
       logger.blank('=========================================\n');
-      rawInput = await askQuestion('What topic do you want to create a video about today? (Type a topic or paste a News Link): ');
+      rawInput = await askQuestion('What topic do you want to create a video about today? (Type a topic or paste a News Link): ', true);
     }
 
     let targetLanguage = await askQuestion('What language do you want for the video? (e.g. English, Indonesian, Spanish): ');
