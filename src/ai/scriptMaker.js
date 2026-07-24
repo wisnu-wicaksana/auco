@@ -46,7 +46,7 @@ MANDATORY RULES:
 2. No markdown formatting (like \`\`\`json).
 3. No explanatory text before or after the JSON.
 4. No comments inside the JSON.
-5. The full_narration MUST be detailed and comprehensive (aim for 80 to 150 words) to ensure the video duration lasts between 30 to 60 seconds. Do NOT make it too short!
+5. The full_narration MUST be detailed and comprehensive. Adapt the length of the narration strictly according to any duration or word count requests specified in the Article/Topic. If no specific duration is requested, aim for a standard short-form video length (around 30 to 60 seconds, which is roughly 80 to 150 words).
 6. The \`narration\` text inside the \`scenes\` array MUST be an EXACT, word-for-word sequential split of the \`full_narration\`. DO NOT duplicate, overlap, or skip any words between scenes. When you concatenate all scene narrations, it must perfectly match the \`full_narration\` without any repeated phrases.
 7. The first sentence of the full_narration MUST be an engaging hook (max 12 words) translated natively into the detected language (e.g., "Did you know...", "Have you ever wondered..."). The \`hook\` JSON field should just be a copy of this first sentence. Do NOT repeat the hook in the subsequent scene narrations.
 8. The closing sentence (at the end of full_narration and the last scene) MUST be an interactive Call to Action translated natively and NATURALLY into the detected language. For Indonesian, use natural phrases like "Gimana menurut kalian? Coba komen di bawah ya!" instead of stiff literal translations like "Apa yang kamu pikir?".
