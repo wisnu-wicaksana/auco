@@ -10,10 +10,28 @@ const { EdgeTTS } = require('node-edge-tts');
 
 const execPromise = promisify(exec);
 
-export async function generateVoiceover(scenesList, outputFile) {
-  logger.step(2, 'Converting script into voiceover (Edge-TTS)...');
+function getVoiceSettings(lang) {
+  const l = (lang || '').toLowerCase();
+  if (l.includes('indonesia')) return { voice: 'id-ID-GadisNeural', lang: 'id-ID' };
+  if (l.includes('spanish') || l.includes('spanyol')) return { voice: 'es-ES-AlvaroNeural', lang: 'es-ES' };
+  if (l.includes('french') || l.includes('prancis')) return { voice: 'fr-FR-HenriNeural', lang: 'fr-FR' };
+  if (l.includes('german') || l.includes('jerman')) return { voice: 'de-DE-ConradNeural', lang: 'de-DE' };
+  if (l.includes('japanese') || l.includes('jepang')) return { voice: 'ja-JP-KeitaNeural', lang: 'ja-JP' };
+  if (l.includes('korean') || l.includes('korea')) return { voice: 'ko-KR-InJoonNeural', lang: 'ko-KR' };
+  if (l.includes('chinese') || l.includes('mandarin')) return { voice: 'zh-CN-YunxiNeural', lang: 'zh-CN' };
+  if (l.includes('russian') || l.includes('rusia')) return { voice: 'ru-RU-DmitryNeural', lang: 'ru-RU' };
+  if (l.includes('arabic') || l.includes('arab')) return { voice: 'ar-SA-HamedNeural', lang: 'ar-SA' };
+  if (l.includes('hindi') || l.includes('india')) return { voice: 'hi-IN-MadhurNeural', lang: 'hi-IN' };
+  // Default fallback
+  return { voice: 'en-US-ChristopherNeural', lang: 'en-US' };
+}
+
+export async function generateVoiceover(scenesList, outputFile, targetLanguage = 'English') {
+  logger.step(2, `Converting script into voiceover (${targetLanguage} - Edge-TTS)...`);
 
   fs.mkdirSync(PATHS.TEMP_DIR, { recursive: true });
+  
+  const voiceSettings = getVoiceSettings(targetLanguage);
 
   const promises = scenesList.map(async (scene, i) => {
     const chunkText = scene.narration.trim();
@@ -21,8 +39,8 @@ export async function generateVoiceover(scenesList, outputFile) {
 
     const chunkFile = PATHS.getVoiceChunkPath(i);
     const tts = new EdgeTTS({
-      voice: 'en-US-ChristopherNeural',
-      lang: 'en-US',
+      voice: voiceSettings.voice,
+      lang: voiceSettings.lang,
       outputFormat: 'audio-24khz-48kbitrate-mono-mp3',
       rate: '+15%',
       pitch: '+5Hz'

@@ -30,11 +30,11 @@ const validateScript = (data) => {
   return true;
 };
 
-export async function generateScript(textArticle) {
+export async function generateScript(textArticle, targetLanguage = 'English') {
   logger.step(1, 'Processing script with AI (Primary: Gemini, Fallback: Groq)...');
 
   const prompt = `
-Convert the following article into a short video script for TikTok/Reels in English.
+Convert the following article into a short video script for TikTok/Reels in ${targetLanguage}.
 
 Article:
 ${textArticle}
@@ -138,13 +138,13 @@ EXPECTED JSON STRUCTURE:
   return scriptData;
 }
 
-export async function generateCaption(narration) {
+export async function generateCaption(narration, targetLanguage = 'English') {
   logger.step(5, 'AI is writing the TikTok/Reels Caption...');
   
   const prompt = `
 I have a video with the following narration: "${narration}".
 
-Please create a TikTok caption in English.
+Please create a TikTok caption in ${targetLanguage}.
 RULES:
 - Maximum 2 sentences.
 - Use casual, engaging English that encourages comments.

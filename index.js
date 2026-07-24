@@ -51,6 +51,12 @@ async function main() {
       rawInput = await askQuestion('What topic do you want to create a video about today? (Type a topic or paste a News Link): ');
     }
 
+    let targetLanguage = await askQuestion('What language do you want for the video? (e.g. English, Indonesian, Spanish): ');
+    if (!targetLanguage.trim()) {
+      targetLanguage = 'English';
+      logger.info('No language provided. Defaulting to English.');
+    }
+
     let finalArticle = rawInput.trim();
     if (!finalArticle) {
         logger.error('\nYou did not provide any topic or link. Process aborted.');
@@ -61,10 +67,10 @@ async function main() {
         finalArticle = await scrapeArticle(finalArticle);
     }
 
-    const scriptData = await generateScript(finalArticle);
-    const captionPromise = generateCaption(scriptData.full_narration);
+    const scriptData = await generateScript(finalArticle, targetLanguage);
+    const captionPromise = generateCaption(scriptData.full_narration, targetLanguage);
 
-    await generateVoiceover(scriptData.scenes, PATHS.AUDIO_OUTPUT);
+    await generateVoiceover(scriptData.scenes, PATHS.AUDIO_OUTPUT, targetLanguage);
 
     const pexelsPromise = generatePexelsVideos(scriptData.scenes, scriptData.fallback_keywords);
     const subtitlePromise = generateSubtitle(PATHS.AUDIO_OUTPUT);
