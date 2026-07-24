@@ -85,8 +85,8 @@ All generated assets are strictly organized inside the AUCO root project directo
 auco/workspace/output/
 
 You will find:
-- FINAL_VIDEO_TIKTOK.mp4 (The final rendered video)
-- CAPTION_TIKTOK.txt (The localized caption and hashtags)
+- FINAL_VIDEO.mp4 (The final rendered video)
+- CAPTION.txt (The localized caption and hashtags)
 - script.json (The raw AI blueprint)
 
 ## Disclaimer
