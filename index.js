@@ -39,17 +39,23 @@ async function askQuestion(query, multiline = false) {
       return;
     }
 
-    process.stdout.write(query + '\n(You can paste long text. Type "DONE" on a new line and press Enter to finish)\n> ');
+    process.stdout.write(query + '\n(You can paste long text. Press ENTER twice on a blank line to finish)\n> ');
     let input = '';
+    let emptyLines = 0;
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     
     rl.on('line', (line) => {
-      if (line.trim().toUpperCase() === 'DONE') {
-        rl.close();
-        resolve(input.trim());
+      if (line.trim() === '') {
+        emptyLines++;
+        if (emptyLines >= 2) {
+          rl.close();
+          resolve(input.trim());
+          return;
+        }
       } else {
-        input += line + '\n';
+        emptyLines = 0;
       }
+      input += line + '\n';
     });
   });
 }
