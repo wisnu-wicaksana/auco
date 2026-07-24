@@ -1,15 +1,17 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { groq, gemini, withTimeout, safeJsonParse, retryRequest } from './aiConfig.js';
+import { groq, gemini, withTimeout, safeJsonParse, retryRequest } from '../config/aiConfig.js';
+import { logger } from '../utils/logger.js';
+import * as PATHS from '../config/paths.js';
 
 const saveJson = async (data, filepath) => {
   try {
     const dir = path.dirname(filepath);
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(filepath, JSON.stringify(data, null, 2));
-    console.log(`   [SUCCESS] Naskah tersimpan di: ${filepath}`);
+    logger.success(`Naskah tersimpan di: ${filepath}`);
   } catch (error) {
-    console.error(`   [ERROR] Gagal menyimpan file ${filepath}:`, error.message);
+    logger.error(`Gagal menyimpan file ${filepath}: ${error.message}`);
   }
 };
 
@@ -28,12 +30,8 @@ const validateScript = (data) => {
   return true;
 };
 
-// ==========================================
-// CORE FUNCTIONS
-// ==========================================
-
 export async function generateScript(textArticle) {
-  console.log('[1/6] [INFO] Memproses naskah dengan AI (Gemini Utama, Groq Penunjang)...');
+  logger.step(1, 'Memproses naskah dengan AI (Gemini Utama, Groq Penunjang)...');
 
   const prompt = `
 Ubah artikel berikut menjadi naskah video pendek TikTok/Reels.
@@ -74,45 +72,12 @@ STRUKTUR JSON YANG DIHARAPKAN:
     }
   ]
 }
-
-CONTOH JSON YANG BENAR:
-{
-  "title": "Misteri Laut Dalam",
-  "hook": "Tahukah kamu apa yang bersembunyi di laut dalam?",
-  "narasi_lengkap": "Tahukah kamu apa yang bersembunyi di laut dalam? Lebih dari delapan puluh persen lautan bumi masih belum terpetakan. Makhluk bercahaya aneh dan gurita raksasa hidup dalam kegelapan abadi ini. Tekanannya sangat ekstrem hingga bisa menghancurkan kapal selam. Namun, kehidupan justru berkembang biak di sana. Siapa tahu monster apa lagi yang menanti di bawah sana?",
-  "estimated_duration": 30,
-  "thumbnail_prompt": "Scary giant glowing octopus in dark deep ocean",
-  "fallback_keywords": [
-    "ocean",
-    "underwater"
-  ],
-  "adegan": [
-    {
-      "detik": "0-5",
-      "duration": 5,
-      "narasi": "Tahukah kamu apa yang bersembunyi di laut dalam?",
-      "keywords_visual": "dark ocean"
-    },
-    {
-      "detik": "5-12",
-      "duration": 7,
-      "narasi": "Lebih dari delapan puluh persen lautan bumi masih belum terpetakan.",
-      "keywords_visual": "map glowing"
-    },
-    {
-      "detik": "12-20",
-      "duration": 8,
-      "narasi": "Makhluk bercahaya aneh dan gurita raksasa hidup dalam kegelapan abadi ini.",
-      "keywords_visual": "octopus swimming"
-    }
-  ]
-}
 `;
 
   let scriptData = null;
 
   try {
-    console.log('   [INFO] [AI-1] Mencoba generate naskah dengan Google Gemini...');
+    logger.info('[AI-1] Mencoba generate naskah dengan Google Gemini...');
     const requestGemini = async () => {
       const response = await withTimeout(
         gemini.models.generateContent({
@@ -131,13 +96,13 @@ CONTOH JSON YANG BENAR:
     const responseText = await retryRequest(requestGemini, 1);
     scriptData = safeJsonParse(responseText);
     validateScript(scriptData);
-    console.log('   [SUCCESS] Naskah berhasil dibuat menggunakan Gemini!');
+    logger.success('Naskah berhasil dibuat menggunakan Gemini!');
 
   } catch (error) {
-    console.warn(`   [WARNING] Gemini gagal diproses (${error.message}). Mengalihkan ke Groq (Llama 3)...`);
+    logger.warn(`Gemini gagal diproses (${error.message}). Mengalihkan ke Groq (Llama 3)...`);
     
     try {
-      console.log('   [INFO] [AI-2] Mencoba generate naskah dengan Groq (Fallback)...');
+      logger.info('[AI-2] Mencoba generate naskah dengan Groq (Fallback)...');
       const requestGroq = async () => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 30000);
@@ -159,24 +124,22 @@ CONTOH JSON YANG BENAR:
       const responseText = await retryRequest(requestGroq, 1);
       scriptData = safeJsonParse(responseText);
       validateScript(scriptData);
-      console.log('   [SUCCESS] Naskah berhasil dibuat menggunakan Groq (Fallback)!');
+      logger.success('Naskah berhasil dibuat menggunakan Groq (Fallback)!');
       
     } catch (groqError) {
-      console.error('\n[ERROR] Kesalahan fatal: Kedua sistem AI (Gemini & Groq) gagal menghasilkan naskah.');
-      console.error('   -> Error Gemini:', error.message);
-      console.error('   -> Error Groq:', groqError.message);
+      logger.error('Kesalahan fatal: Kedua sistem AI (Gemini & Groq) gagal menghasilkan naskah.');
+      logger.error(`Error Gemini: ${error.message}`);
+      logger.error(`Error Groq: ${groqError.message}`);
       throw new Error('Semua AI gagal menghasilkan naskah.');
     }
   }
 
-  await saveJson(scriptData, 'workspace/output/script.json');
-  console.log('[INFO] Struktur JSON naskah valid:\n', JSON.stringify(scriptData, null, 2));
-  
+  await saveJson(scriptData, PATHS.SCRIPT_OUTPUT);
   return scriptData;
 }
 
 export async function generateCaption(narasi) {
-  console.log('[5/6] [INFO] AI sedang menulis Caption TikTok/Reels...');
+  logger.step(5, 'AI sedang menulis Caption TikTok/Reels...');
   
   const prompt = `
 Saya punya video dengan narasi berikut: "${narasi}".
@@ -193,7 +156,7 @@ ATURAN:
   let caption = "";
 
   try {
-    console.log('   [INFO] [AI-1] Mencoba membuat caption dengan Google Gemini...');
+    logger.info('[AI-1] Mencoba membuat caption dengan Google Gemini...');
     const requestGemini = async () => {
       const response = await withTimeout(
         gemini.models.generateContent({
@@ -209,13 +172,13 @@ ATURAN:
     };
 
     caption = await retryRequest(requestGemini, 1);
-    console.log('   [SUCCESS] Caption berhasil dibuat menggunakan Gemini!');
+    logger.success('Caption berhasil dibuat menggunakan Gemini!');
 
   } catch (error) {
-    console.warn(`   [WARNING] Gemini gagal membuat caption (${error.message}). Mengalihkan ke Groq...`);
+    logger.warn(`Gemini gagal membuat caption (${error.message}). Mengalihkan ke Groq...`);
     
     try {
-      console.log('   [INFO] [AI-2] Mencoba membuat caption dengan Groq (Fallback)...');
+      logger.info('[AI-2] Mencoba membuat caption dengan Groq (Fallback)...');
       const requestGroq = async () => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 20000);
@@ -232,21 +195,20 @@ ATURAN:
       };
 
       caption = await retryRequest(requestGroq, 1);
-      console.log('   [SUCCESS] Caption berhasil dibuat menggunakan Groq (Fallback)!');
+      logger.success('Caption berhasil dibuat menggunakan Groq (Fallback)!');
       
     } catch (groqError) {
-      console.error('\n[ERROR] Kedua AI gagal membuat caption:', groqError.message);
-      console.warn('   [WARNING] Menggunakan caption default sebagai fallback.');
+      logger.error(`Kedua AI gagal membuat caption: ${groqError.message}`);
+      logger.warn('Menggunakan caption default sebagai fallback.');
       caption = "Tonton video ini sampai habis ya! Gimana pendapat kalian? 👇 #video #faktaunik";
     }
   }
 
-  const captionPath = 'workspace/output/CAPTION_TIKTOK.txt';
-  await fs.mkdir(path.dirname(captionPath), { recursive: true });
-  await fs.writeFile(captionPath, caption);
+  await fs.mkdir(path.dirname(PATHS.CAPTION_OUTPUT), { recursive: true });
+  await fs.writeFile(PATHS.CAPTION_OUTPUT, caption);
   
-  console.log('\n[INFO] Hasil Caption TikTok/Reels:\n----------------------------------\n' + caption + '\n----------------------------------\n');
-  console.log(`   [SUCCESS] Caption tersimpan di: ${captionPath}`);
+  logger.blank('\n----------------------------------\n' + caption + '\n----------------------------------\n');
+  logger.success(`Caption tersimpan di: ${PATHS.CAPTION_OUTPUT}`);
   
   return caption;
 }

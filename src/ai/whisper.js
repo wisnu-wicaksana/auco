@@ -1,11 +1,11 @@
-import Groq from 'groq-sdk';
 import fs from 'fs';
-import 'dotenv/config';
-
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+import { groq } from '../config/aiConfig.js';
+import { logger } from '../utils/logger.js';
+import * as PATHS from '../config/paths.js';
+import path from 'path';
 
 export async function generateSubtitle(audioFile) {
-  console.log('[4/6] [INFO] Whisper AI menyalin audio menjadi Subtitle (.ass)...');
+  logger.step(4, 'Whisper AI menyalin audio menjadi Subtitle (.ass)...');
   
   const fallbackSubtitle = `[Script Info]\nScriptType: v4.00+\nPlayResX: 1080\nPlayResY: 1920\n\n[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\nStyle: Default,Arial Black,70,&H0000FFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,8,4,2,10,10,250,1\n\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\nDialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,, \n`;
 
@@ -56,11 +56,13 @@ export async function generateSubtitle(audioFile) {
       assContent += `Dialogue: 0,0:00:00.00,0:00:10.00,Default,,0,0,0,,${transcription.text || ''}\n`;
     }
 
-    fs.writeFileSync('workspace/temp/subtitle.ass', assContent);
-    console.log('   [SUCCESS] Subtitle tersimpan di: workspace/temp/subtitle.ass');
+    fs.mkdirSync(path.dirname(PATHS.TEMP_SUBTITLE), { recursive: true });
+    fs.writeFileSync(PATHS.TEMP_SUBTITLE, assContent);
+    logger.success(`Subtitle tersimpan di: ${PATHS.TEMP_SUBTITLE}`);
   } catch (error) {
-    console.error('   [ERROR] Gagal membuat subtitle:', error.message);
-    console.warn('   [WARNING] Menggunakan subtitle kosong sebagai fallback...');
-    fs.writeFileSync('workspace/temp/subtitle.ass', fallbackSubtitle);
+    logger.error(`Gagal membuat subtitle: ${error.message}`);
+    logger.warn('Menggunakan subtitle kosong sebagai fallback...');
+    fs.mkdirSync(path.dirname(PATHS.TEMP_SUBTITLE), { recursive: true });
+    fs.writeFileSync(PATHS.TEMP_SUBTITLE, fallbackSubtitle);
   }
 }

@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
-import path from 'path';
+import { logger } from '../utils/logger.js';
+import * as PATHS from '../config/paths.js';
 
-const TEMP_DIR = 'workspace/temp';
 const MAX_CONCURRENT = 3;
 
 async function fetchWithTimeout(url, options = {}, timeout = 15000) {
@@ -17,7 +17,7 @@ async function fetchWithTimeout(url, options = {}, timeout = 15000) {
 async function findBestVideo(searchQueries, minDuration, pexelsKey, usedVideoIds) {
   for (const q of searchQueries) {
     if (!q) continue;
-    console.log(`   [INFO] Mencari video untuk: ${q}`);
+    logger.info(`Mencari video untuk: ${q}`);
     try {
       const apiUrl = `https://api.pexels.com/videos/search?query=${encodeURIComponent(q)}&per_page=20&orientation=portrait`;
       const response = await fetchWithTimeout(apiUrl, { headers: { Authorization: pexelsKey } });
@@ -32,7 +32,7 @@ async function findBestVideo(searchQueries, minDuration, pexelsKey, usedVideoIds
 
       if (candidates.length > 0) return candidates[0];
     } catch (err) {
-      console.warn(`   [WARNING] Gagal melakukan pencarian untuk: ${q} (${err.message})`);
+      logger.warn(`Gagal melakukan pencarian untuk: ${q} (${err.message})`);
     }
   }
   return null;
@@ -54,37 +54,36 @@ async function processScene(scene, index, fallbackKeywords, pexelsKey, usedVideo
     const video = await findBestVideo(searchQueries, duration, pexelsKey, usedVideoIds);
 
     if (!video) {
-      console.warn(`   [WARNING] Adegan ${index + 1}: video Pexels tidak ditemukan. Akan dilewati.`);
+      logger.warn(`Adegan ${index + 1}: video Pexels tidak ditemukan. Akan dilewati.`);
       return null;
     }
 
     usedVideoIds.add(video.id);
 
     const videoFile = video.video_files.find(v => v.quality === 'hd') ?? video.video_files.find(v => v.width >= 1080) ?? video.video_files[0];
-    const finalPath = path.join(TEMP_DIR, `adegan_${index + 1}.mp4`);
+    const finalPath = PATHS.getAdeganPath(index + 1);
 
-    console.log(`   [INFO] Mengunduh adegan ${index + 1}...`);
-    // Langsung simpan raw video. Encoding akan dilakukan sekaligus di ffmpeg.js untuk menghindari double-encoding.
+    logger.info(`Mengunduh adegan ${index + 1}...`);
     await downloadFile(videoFile.link, finalPath);
 
-    console.log(`   [SUCCESS] Adegan ${index + 1} siap: ${finalPath}`);
+    logger.success(`Adegan ${index + 1} siap: ${finalPath}`);
     return finalPath;
   } catch (error) {
-    console.error(`   [ERROR] Gagal memproses adegan ${index + 1}:`, error.message);
+    logger.error(`Gagal memproses adegan ${index + 1}: ${error.message}`);
     return null;
   }
 }
 
 export async function generatePexelsVideos(adeganList, fallbackKeywords = ['nature', 'cinematic']) {
-  console.log('[3/6] [INFO] Mengunduh aset video B-Roll (Pexels)...');
+  logger.step(3, 'Mengunduh aset video B-Roll (Pexels)...');
   const pexelsKey = process.env.PEXELS_API_KEY;
 
   if (!pexelsKey) {
-    console.error('[ERROR] PEXELS_API_KEY belum diisi. Melewati pengunduhan Pexels.');
+    logger.error('PEXELS_API_KEY belum diisi. Melewati pengunduhan Pexels.');
     return [];
   }
 
-  await fs.mkdir(TEMP_DIR, { recursive: true });
+  await fs.mkdir(PATHS.TEMP_DIR, { recursive: true });
   const usedVideoIds = new Set();
   const results = [];
 
