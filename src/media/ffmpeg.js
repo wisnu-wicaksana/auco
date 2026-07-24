@@ -15,33 +15,33 @@ async function getBestEncoder() {
     if (stdout.includes('h264_qsv')) return 'h264_qsv';
     if (stdout.includes('h264_amf')) return 'h264_amf';
   } catch (e) {
-    logger.warn('Gagal mendeteksi encoder hardware, menggunakan libx264 default.');
+    logger.warn('Failed to detect hardware encoder, falling back to libx264.');
   }
   return 'libx264';
 }
 
-export async function renderVideo(adeganList, audioFile, outputFile) {
-  logger.step(6, 'Menjahit Audio dan Gambar menjadi Video MP4 (FFmpeg)...');
+export async function renderVideo(scenesList, audioFile, outputFile) {
+  logger.step(6, 'Stitching Audio and Visuals into an MP4 Video (FFmpeg)...');
 
   try {
     let validScenes = [];
     
-    for (let i = 0; i < adeganList.length; i++) {
+    for (let i = 0; i < scenesList.length; i++) {
       const adeganPath = PATHS.getAdeganPath(i + 1);
       if (fs.existsSync(adeganPath)) {
-        validScenes.push({ path: adeganPath, duration: adeganList[i].exactDuration ?? 5 });
+        validScenes.push({ path: adeganPath, duration: scenesList[i].exactDuration ?? 5 });
       } else {
-        logger.warn(`adegan_${i + 1}.mp4 tidak ditemukan, akan di-skip dalam proses render.`);
+        logger.warn(`Scene ${i + 1} video not found, it will be skipped in rendering.`);
       }
     }
     
     if (validScenes.length === 0) {
-      logger.error('Tidak ada satupun file video Pexels yang berhasil diunduh. Render dibatalkan.');
+      logger.error('No Pexels videos were successfully downloaded. Render aborted.');
       return;
     }
 
     const encoder = await getBestEncoder();
-    logger.info(`Menggunakan Video Encoder: ${encoder} (Cross-Platform Hardware Acceleration)`);
+    logger.info(`Using Video Encoder: ${encoder} (Cross-Platform Hardware Acceleration)`);
 
     let ffmpegInputs = '';
     let filterComplex = '';
@@ -72,17 +72,17 @@ export async function renderVideo(adeganList, audioFile, outputFile) {
 
     const ffmpegCmd = `cd "${PATHS.TEMP_DIR}" && ffmpeg -y ${ffmpegInputs} -filter_complex "${filterComplex}" -map "[finalv]" ${mapAudio} -c:v ${encoder} -preset fast -b:v 4M -c:a aac -ac 2 -b:a 128k -shortest "${absOutputFile}"`;
 
-    logger.info('Merender video (Single-Pass) dengan filter_complex...');
+    logger.info('Rendering video (Single-Pass) using filter_complex...');
     await execPromise(ffmpegCmd);
     
-    logger.success(`RENDER SELESAI! Video tersimpan sebagai: ${outputFile}`);
+    logger.success(`RENDER COMPLETE! Video saved as: ${outputFile}`);
   } catch (error) {
-    logger.error(`Gagal melakukan render video: ${error.message}`);
+    logger.error(`Failed to render video: ${error.message}`);
   } finally {
-    logger.info('Membersihkan ruang kerja...');
+    logger.info('Cleaning up workspace...');
     if (fs.existsSync(PATHS.TEMP_LIST)) fs.unlinkSync(PATHS.TEMP_LIST);
     if (fs.existsSync(PATHS.TEMP_SUBTITLE)) fs.unlinkSync(PATHS.TEMP_SUBTITLE);
-    for (let i = 0; i < adeganList.length; i++) {
+    for (let i = 0; i < scenesList.length; i++) {
         const file = PATHS.getAdeganPath(i + 1);
         if (fs.existsSync(file)) fs.unlinkSync(file);
     }

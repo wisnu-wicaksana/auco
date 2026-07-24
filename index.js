@@ -12,14 +12,14 @@ import fs from 'fs';
 function setupGracefulShutdown() {
   const cleanup = () => {
     logger.blank('\n');
-    logger.warn('Menerima sinyal pembatalan (Ctrl+C). Membersihkan file sampah...');
+    logger.warn('Received cancellation signal (Ctrl+C). Cleaning up temporary files...');
     try {
       if (fs.existsSync(PATHS.TEMP_DIR)) {
         fs.rmSync(PATHS.TEMP_DIR, { recursive: true, force: true });
-        logger.success('Pembersihan selesai. Sampai jumpa!');
+        logger.success('Cleanup complete. Goodbye!');
       }
     } catch (err) {
-      logger.error(`Gagal membersihkan folder temp: ${err.message}`);
+      logger.error(`Failed to clean up temp folder: ${err.message}`);
     }
     process.exit(1);
   };
@@ -46,14 +46,14 @@ async function main() {
 
     if (!rawInput) {
       logger.blank('\n=========================================');
-      logger.blank(' AUCO - Auto Content');
+      logger.blank(' AUCO - Auto Content Creator');
       logger.blank('=========================================\n');
-      rawInput = await askQuestion('Mau buat video tentang topik apa hari ini? (Ketik topik atau paste Link Berita): ');
+      rawInput = await askQuestion('What topic do you want to create a video about today? (Type a topic or paste a News Link): ');
     }
 
     let finalArticle = rawInput.trim();
     if (!finalArticle) {
-        logger.error('\nAnda tidak memasukkan topik atau link sama sekali. Proses dibatalkan.');
+        logger.error('\nYou did not provide any topic or link. Process aborted.');
         return;
     }
 
@@ -62,21 +62,21 @@ async function main() {
     }
 
     const scriptData = await generateScript(finalArticle);
-    const captionPromise = generateCaption(scriptData.narasi_lengkap);
+    const captionPromise = generateCaption(scriptData.full_narration);
 
-    await generateVoiceover(scriptData.adegan, PATHS.AUDIO_OUTPUT);
+    await generateVoiceover(scriptData.scenes, PATHS.AUDIO_OUTPUT);
 
-    const pexelsPromise = generatePexelsVideos(scriptData.adegan, scriptData.fallback_keywords);
+    const pexelsPromise = generatePexelsVideos(scriptData.scenes, scriptData.fallback_keywords);
     const subtitlePromise = generateSubtitle(PATHS.AUDIO_OUTPUT);
     
     await Promise.all([pexelsPromise, subtitlePromise, captionPromise]);
 
-    await renderVideo(scriptData.adegan, PATHS.AUDIO_OUTPUT, PATHS.FINAL_VIDEO);
+    await renderVideo(scriptData.scenes, PATHS.AUDIO_OUTPUT, PATHS.FINAL_VIDEO);
 
-    logger.blank('\n[SUCCESS] Proses Selesai! Naskah, Suara Narator, Gambar Visual, dan Subtitle Berhasil Dibuat!');
-    logger.blank(`[INFO] Silakan cek hasilnya di: ${PATHS.FINAL_VIDEO}\n`);
+    logger.blank('\n[SUCCESS] Process Completed! Script, Voiceover, Visuals, and Subtitles generated successfully!');
+    logger.blank(`[INFO] Please check your result here: ${PATHS.FINAL_VIDEO}\n`);
   } catch (error) {
-    logger.error(`\nProgram Terhenti Karena Kesalahan Fatal: ${error.message}`);
+    logger.error(`\nProgram Terminated due to Fatal Error: ${error.message}`);
   }
 }
 

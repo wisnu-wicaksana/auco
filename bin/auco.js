@@ -16,5 +16,5 @@ const child = spawn('node', ['index.js', ...args], {
 });
 
 child.on('error', (err) => {
-  console.error('[ERROR] Gagal menjalankan auco:', err);
+  console.error('[ERROR] Failed to execute auco:', err);
 });

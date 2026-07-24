@@ -9,66 +9,66 @@ const saveJson = async (data, filepath) => {
     const dir = path.dirname(filepath);
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(filepath, JSON.stringify(data, null, 2));
-    logger.success(`Naskah tersimpan di: ${filepath}`);
+    logger.success(`Script saved to: ${filepath}`);
   } catch (error) {
-    logger.error(`Gagal menyimpan file ${filepath}: ${error.message}`);
+    logger.error(`Failed to save file ${filepath}: ${error.message}`);
   }
 };
 
 const validateScript = (data) => {
-  const requiredKeys = ['title', 'hook', 'narasi_lengkap', 'fallback_keywords', 'adegan'];
+  const requiredKeys = ['title', 'hook', 'full_narration', 'fallback_keywords', 'scenes'];
   for (const key of requiredKeys) {
     if (!data[key]) {
-      throw new Error(`Validasi gagal: Key "${key}" tidak ditemukan dalam JSON.`);
+      throw new Error(`Validation failed: Key "${key}" not found in JSON.`);
     }
   }
   
-  if (!Array.isArray(data.adegan) || data.adegan.length === 0) {
-    throw new Error('Validasi gagal: "adegan" harus berupa array dan tidak boleh kosong.');
+  if (!Array.isArray(data.scenes) || data.scenes.length === 0) {
+    throw new Error('Validation failed: "scenes" must be a non-empty array.');
   }
   
   return true;
 };
 
 export async function generateScript(textArticle) {
-  logger.step(1, 'Memproses naskah dengan AI (Gemini Utama, Groq Penunjang)...');
+  logger.step(1, 'Processing script with AI (Primary: Gemini, Fallback: Groq)...');
 
   const prompt = `
-Ubah artikel berikut menjadi naskah video pendek TikTok/Reels.
+Convert the following article into a short video script for TikTok/Reels in English.
 
-Artikel:
+Article:
 ${textArticle}
 
-ATURAN WAJIB:
-1. Output HARUS murni format JSON valid.
-2. Tidak boleh menggunakan markdown (seperti \`\`\`json).
-3. Tidak boleh ada penjelasan atau teks sebelum/sesudah JSON.
-4. Tidak boleh ada komentar di dalam JSON.
-5. Total narasi maksimal 150 kata.
-6. Setiap adegan maksimal 25 kata.
-7. Hook (kalimat pertama adegan pertama) maksimal 12 kata, WAJIB diawali dengan frasa pembuka yang menarik seperti "Tahukah kamu...", "Pernahkah kamu membayangkan...", atau "Ternyata...".
-8. Kalimat penutup (di adegan terakhir) WAJIB berupa ajakan interaktif (Call to Action) atau pertanyaan seperti "Bagaimana menurutmu?", "Coba tulis pendapatmu di komentar!", atau "Menurut kalian gimana?".
-9. Keywords visual: MAKSIMAL 2 kata dalam bahasa Inggris. Kata pertama WAJIB subjek, kata kedua aksi sederhana.
-   CONTOH VALID: "lion", "lion walking", "dog running", "woman reading", "chef cooking".
-   CONTOH TIDAK VALID: "lion in africa", "lion with sunset", "lion hunting zebra", "woman reading newspaper indoors".
+MANDATORY RULES:
+1. Output MUST be pure valid JSON format.
+2. No markdown formatting (like \`\`\`json).
+3. No explanatory text before or after the JSON.
+4. No comments inside the JSON.
+5. Total narration maximum 150 words.
+6. Each scene maximum 25 words.
+7. Hook (first sentence of the first scene) maximum 12 words, MUST start with an engaging phrase like "Did you know...", "Have you ever wondered...", or "It turns out...".
+8. The closing sentence (in the last scene) MUST be an interactive Call to Action or a question like "What do you think?", "Let me know in the comments!", or "Drop your thoughts below!".
+9. Visual keywords: MAXIMUM 2 words in English. The first word MUST be a subject, the second word a simple action.
+   VALID EXAMPLES: "lion", "lion walking", "dog running", "woman reading", "chef cooking".
+   INVALID EXAMPLES: "lion in africa", "lion with sunset", "lion hunting zebra", "woman reading newspaper indoors".
 
-STRUKTUR JSON YANG DIHARAPKAN:
+EXPECTED JSON STRUCTURE:
 {
-  "title": "Judul singkat untuk file",
-  "hook": "Teks hook (maks 12 kata)",
-  "narasi_lengkap": "Seluruh narasi disatukan di sini (maks 150 kata)",
+  "title": "Short title for the file",
+  "hook": "Hook text (max 12 words)",
+  "full_narration": "The entire narration concatenated here (max 150 words)",
   "estimated_duration": 60,
-  "thumbnail_prompt": "Prompt untuk membuat thumbnail",
+  "thumbnail_prompt": "Prompt for generating a thumbnail",
   "fallback_keywords": [
     "nature",
     "animals"
   ],
-  "adegan": [
+  "scenes": [
     {
-      "detik": "0-6",
+      "time": "0-6",
       "duration": 6,
-      "narasi": "Teks narasi adegan 1",
-      "keywords_visual": "lion walking"
+      "narration": "Narration text for scene 1",
+      "visual_keywords": "lion walking"
     }
   ]
 }
@@ -77,7 +77,7 @@ STRUKTUR JSON YANG DIHARAPKAN:
   let scriptData = null;
 
   try {
-    logger.info('[AI-1] Mencoba generate naskah dengan Google Gemini...');
+    logger.info('[AI-1] Attempting to generate script with Google Gemini...');
     const requestGemini = async () => {
       const response = await withTimeout(
         gemini.models.generateContent({
@@ -96,13 +96,13 @@ STRUKTUR JSON YANG DIHARAPKAN:
     const responseText = await retryRequest(requestGemini, 1);
     scriptData = safeJsonParse(responseText);
     validateScript(scriptData);
-    logger.success('Naskah berhasil dibuat menggunakan Gemini!');
+    logger.success('Script successfully generated using Gemini!');
 
   } catch (error) {
-    logger.warn(`Gemini gagal diproses (${error.message}). Mengalihkan ke Groq (Llama 3)...`);
+    logger.warn(`Gemini processing failed (${error.message}). Switching to Groq (Llama 3)...`);
     
     try {
-      logger.info('[AI-2] Mencoba generate naskah dengan Groq (Fallback)...');
+      logger.info('[AI-2] Attempting to generate script with Groq (Fallback)...');
       const requestGroq = async () => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 30000);
@@ -124,13 +124,13 @@ STRUKTUR JSON YANG DIHARAPKAN:
       const responseText = await retryRequest(requestGroq, 1);
       scriptData = safeJsonParse(responseText);
       validateScript(scriptData);
-      logger.success('Naskah berhasil dibuat menggunakan Groq (Fallback)!');
+      logger.success('Script successfully generated using Groq (Fallback)!');
       
     } catch (groqError) {
-      logger.error('Kesalahan fatal: Kedua sistem AI (Gemini & Groq) gagal menghasilkan naskah.');
-      logger.error(`Error Gemini: ${error.message}`);
-      logger.error(`Error Groq: ${groqError.message}`);
-      throw new Error('Semua AI gagal menghasilkan naskah.');
+      logger.error('Fatal Error: Both AI systems (Gemini & Groq) failed to generate the script.');
+      logger.error(`Gemini Error: ${error.message}`);
+      logger.error(`Groq Error: ${groqError.message}`);
+      throw new Error('All AI models failed to generate the script.');
     }
   }
 
@@ -138,25 +138,25 @@ STRUKTUR JSON YANG DIHARAPKAN:
   return scriptData;
 }
 
-export async function generateCaption(narasi) {
-  logger.step(5, 'AI sedang menulis Caption TikTok/Reels...');
+export async function generateCaption(narration) {
+  logger.step(5, 'AI is writing the TikTok/Reels Caption...');
   
   const prompt = `
-Saya punya video dengan narasi berikut: "${narasi}".
+I have a video with the following narration: "${narration}".
 
-Tolong buatkan caption TikTok.
-ATURAN:
-- Maksimal 2 kalimat.
-- Gunakan bahasa Indonesia santai (gaul) yang memancing komentar.
-- Harus ada 1 pertanyaan di akhir kalimat.
-- Jangan terlalu banyak emoji (maksimal 2).
-- Sertakan 3-5 hashtag yang relevan di akhir.
+Please create a TikTok caption in English.
+RULES:
+- Maximum 2 sentences.
+- Use casual, engaging English that encourages comments.
+- Must contain 1 question at the end.
+- Do not use too many emojis (maximum 2).
+- Include 3-5 relevant hashtags at the end.
 `;
 
   let caption = "";
 
   try {
-    logger.info('[AI-1] Mencoba membuat caption dengan Google Gemini...');
+    logger.info('[AI-1] Attempting to generate caption with Google Gemini...');
     const requestGemini = async () => {
       const response = await withTimeout(
         gemini.models.generateContent({
@@ -172,13 +172,13 @@ ATURAN:
     };
 
     caption = await retryRequest(requestGemini, 1);
-    logger.success('Caption berhasil dibuat menggunakan Gemini!');
+    logger.success('Caption successfully generated using Gemini!');
 
   } catch (error) {
-    logger.warn(`Gemini gagal membuat caption (${error.message}). Mengalihkan ke Groq...`);
+    logger.warn(`Gemini failed to generate caption (${error.message}). Switching to Groq...`);
     
     try {
-      logger.info('[AI-2] Mencoba membuat caption dengan Groq (Fallback)...');
+      logger.info('[AI-2] Attempting to generate caption with Groq (Fallback)...');
       const requestGroq = async () => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 20000);
@@ -195,12 +195,12 @@ ATURAN:
       };
 
       caption = await retryRequest(requestGroq, 1);
-      logger.success('Caption berhasil dibuat menggunakan Groq (Fallback)!');
+      logger.success('Caption successfully generated using Groq (Fallback)!');
       
     } catch (groqError) {
-      logger.error(`Kedua AI gagal membuat caption: ${groqError.message}`);
-      logger.warn('Menggunakan caption default sebagai fallback.');
-      caption = "Tonton video ini sampai habis ya! Gimana pendapat kalian? 👇 #video #faktaunik";
+      logger.error(`Both AI models failed to generate caption: ${groqError.message}`);
+      logger.warn('Using default caption as a fallback.');
+      caption = "Watch this video until the end! What do you guys think? 👇 #video #funfacts";
     }
   }
 
@@ -208,7 +208,7 @@ ATURAN:
   await fs.writeFile(PATHS.CAPTION_OUTPUT, caption);
   
   logger.blank('\n----------------------------------\n' + caption + '\n----------------------------------\n');
-  logger.success(`Caption tersimpan di: ${PATHS.CAPTION_OUTPUT}`);
+  logger.success(`Caption saved to: ${PATHS.CAPTION_OUTPUT}`);
   
   return caption;
 }

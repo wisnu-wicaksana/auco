@@ -10,26 +10,25 @@ const { EdgeTTS } = require('node-edge-tts');
 
 const execPromise = promisify(exec);
 
-export async function generateVoiceover(adeganList, outputFile) {
-  logger.step(2, 'Mengubah naskah menjadi suara narator (Edge-TTS)...');
+export async function generateVoiceover(scenesList, outputFile) {
+  logger.step(2, 'Converting script into voiceover (Edge-TTS)...');
 
-  // Pastikan folder temp tersedia
   fs.mkdirSync(PATHS.TEMP_DIR, { recursive: true });
 
-  const promises = adeganList.map(async (scene, i) => {
-    const chunkText = scene.narasi.trim();
+  const promises = scenesList.map(async (scene, i) => {
+    const chunkText = scene.narration.trim();
     if (!chunkText) return null;
 
     const chunkFile = PATHS.getVoiceChunkPath(i);
     const tts = new EdgeTTS({
-      voice: 'id-ID-GadisNeural',
-      lang: 'id-ID',
+      voice: 'en-US-ChristopherNeural',
+      lang: 'en-US',
       outputFormat: 'audio-24khz-48kbitrate-mono-mp3',
       rate: '+15%',
       pitch: '+5Hz'
     });
 
-    logger.info(`Menyuarakan adegan ${i + 1}/${adeganList.length}...`);
+    logger.info(`Voicing scene ${i + 1}/${scenesList.length}...`);
     try {
       await tts.ttsPromise(chunkText, chunkFile);
       
@@ -38,7 +37,7 @@ export async function generateVoiceover(adeganList, outputFile) {
 
       return `file 'voice_chunk_${i}.mp3'\n`;
     } catch (e) {
-      logger.warn(`Gagal menyuarakan adegan ${i + 1}. Menggunakan durasi fallback 3 detik. (${e.message})`);
+      logger.warn(`Failed to voice scene ${i + 1}. Using fallback duration of 3 seconds. (${e.message})`);
       scene.exactDuration = 3;
       return null;
     }
@@ -48,22 +47,22 @@ export async function generateVoiceover(adeganList, outputFile) {
   const listContent = results.filter(Boolean).join('');
 
   if (!listContent) {
-    logger.error('Semua audio gagal di-generate. Video mungkin tidak memiliki suara narator.');
+    logger.error('All audio generation failed. The video might not have a voiceover.');
     fs.writeFileSync(outputFile, '');
     return;
   }
 
   fs.writeFileSync(PATHS.TEMP_VOICE_LIST, listContent);
   
-  logger.info(`Menggabungkan potongan suara menjadi utuh...`);
+  logger.info(`Merging voice chunks into a single file...`);
   try {
     await execPromise(`cd "${PATHS.TEMP_DIR}" && ffmpeg -y -f concat -safe 0 -i voice_list.txt -c copy "${outputFile}"`);
-    logger.success(`Suara utuh berhasil disimpan di: ${outputFile}`);
+    logger.success(`Complete voiceover saved to: ${outputFile}`);
   } catch (error) {
-    logger.error(`Gagal menggabungkan audio: ${error.message}`);
+    logger.error(`Failed to merge audio: ${error.message}`);
   } finally {
     if (fs.existsSync(PATHS.TEMP_VOICE_LIST)) fs.unlinkSync(PATHS.TEMP_VOICE_LIST);
-    for (let i = 0; i < adeganList.length; i++) {
+    for (let i = 0; i < scenesList.length; i++) {
       const chunkPath = PATHS.getVoiceChunkPath(i);
       if (fs.existsSync(chunkPath)) fs.unlinkSync(chunkPath);
     }
