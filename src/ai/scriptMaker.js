@@ -47,9 +47,9 @@ MANDATORY RULES:
 3. No explanatory text before or after the JSON.
 4. No comments inside the JSON.
 5. The full_narration MUST be detailed and comprehensive (aim for 80 to 150 words) to ensure the video duration lasts between 30 to 60 seconds. Do NOT make it too short!
-6. The \`narration\` text inside the \`scenes\` array MUST be an EXACT, word-for-word split of the \`full_narration\`. DO NOT summarize or skip any sentences. If you concatenate all scene narrations, it must perfectly match the \`full_narration\`.
-7. Hook (first sentence of the first scene) maximum 12 words. It MUST start with an engaging phrase translated natively into the detected language (equivalent to "Did you know...", "Have you ever wondered...", or "It turns out...").
-8. The closing sentence (in the last scene) MUST be an interactive Call to Action translated natively into the detected language (equivalent to "What do you think?", "Let me know in the comments!").
+6. The \`narration\` text inside the \`scenes\` array MUST be an EXACT, word-for-word sequential split of the \`full_narration\`. DO NOT duplicate, overlap, or skip any words between scenes. When you concatenate all scene narrations, it must perfectly match the \`full_narration\` without any repeated phrases.
+7. The first sentence of the full_narration MUST be an engaging hook (max 12 words) translated natively into the detected language (e.g., "Did you know...", "Have you ever wondered..."). The \`hook\` JSON field should just be a copy of this first sentence. Do NOT repeat the hook in the subsequent scene narrations.
+8. The closing sentence (at the end of full_narration and the last scene) MUST be an interactive Call to Action translated natively and NATURALLY into the detected language. For Indonesian, use natural phrases like "Gimana menurut kalian? Coba komen di bawah ya!" instead of stiff literal translations like "Apa yang kamu pikir?".
 9. Visual keywords: MAXIMUM 2 words strictly in English (for stock footage search). The first word MUST be a subject, the second word a simple action.
    VALID EXAMPLES: "lion", "lion walking", "dog running", "woman reading", "chef cooking".
    INVALID EXAMPLES: "lion in africa", "lion with sunset", "lion hunting zebra", "woman reading newspaper indoors".
