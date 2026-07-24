@@ -16,7 +16,7 @@ const saveJson = async (data, filepath) => {
 };
 
 const validateScript = (data) => {
-  const requiredKeys = ['title', 'hook', 'full_narration', 'fallback_keywords', 'scenes'];
+  const requiredKeys = ['language', 'title', 'hook', 'full_narration', 'fallback_keywords', 'scenes'];
   for (const key of requiredKeys) {
     if (!data[key]) {
       throw new Error(`Validation failed: Key "${key}" not found in JSON.`);
@@ -30,15 +30,15 @@ const validateScript = (data) => {
   return true;
 };
 
-export async function generateScript(textArticle, targetLanguage = 'English') {
+export async function generateScript(textArticle) {
   logger.step(1, 'Processing script with AI (Primary: Gemini, Fallback: Groq)...');
 
 const prompt = `
-CRITICAL INSTRUCTION: The ENTIRE output (title, hook, full_narration, and scene narrations) MUST be written EXCLUSIVELY in ${targetLanguage.toUpperCase()}. DO NOT mix languages!
+CRITICAL INSTRUCTION: Detect the language of the provided Article/Topic. The ENTIRE output (title, hook, full_narration, and scene narrations) MUST be written EXCLUSIVELY in that detected language. DO NOT mix languages!
 
-Convert the following article into a short video script for TikTok/Reels.
+Convert the following article or topic into a detailed video script for TikTok/Reels.
 
-Article:
+Article/Topic:
 ${textArticle}
 
 MANDATORY RULES:
@@ -48,14 +48,15 @@ MANDATORY RULES:
 4. No comments inside the JSON.
 5. The full_narration MUST be detailed and comprehensive (aim for 80 to 150 words) to ensure the video duration lasts between 30 to 60 seconds. Do NOT make it too short!
 6. The \`narration\` text inside the \`scenes\` array MUST be an EXACT, word-for-word split of the \`full_narration\`. DO NOT summarize or skip any sentences. If you concatenate all scene narrations, it must perfectly match the \`full_narration\`.
-7. Hook (first sentence of the first scene) maximum 12 words. It MUST start with an engaging phrase translated natively into ${targetLanguage.toUpperCase()} (equivalent to "Did you know...", "Have you ever wondered...", or "It turns out...").
-8. The closing sentence (in the last scene) MUST be an interactive Call to Action translated natively into ${targetLanguage.toUpperCase()} (equivalent to "What do you think?", "Let me know in the comments!").
+7. Hook (first sentence of the first scene) maximum 12 words. It MUST start with an engaging phrase translated natively into the detected language (equivalent to "Did you know...", "Have you ever wondered...", or "It turns out...").
+8. The closing sentence (in the last scene) MUST be an interactive Call to Action translated natively into the detected language (equivalent to "What do you think?", "Let me know in the comments!").
 9. Visual keywords: MAXIMUM 2 words strictly in English (for stock footage search). The first word MUST be a subject, the second word a simple action.
    VALID EXAMPLES: "lion", "lion walking", "dog running", "woman reading", "chef cooking".
    INVALID EXAMPLES: "lion in africa", "lion with sunset", "lion hunting zebra", "woman reading newspaper indoors".
 
 EXPECTED JSON STRUCTURE:
 {
+  "language": "The detected language name written in English (e.g. Indonesian, English, Spanish, Japanese)",
   "title": "Short title for the file",
   "hook": "Hook text (max 12 words)",
   "full_narration": "The entire narration concatenated here (max 150 words)",
