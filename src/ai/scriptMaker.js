@@ -46,8 +46,8 @@ MANDATORY RULES:
 2. No markdown formatting (like \`\`\`json).
 3. No explanatory text before or after the JSON.
 4. No comments inside the JSON.
-5. Total narration maximum 150 words.
-6. Each scene maximum 25 words.
+5. The full_narration MUST be detailed and comprehensive (aim for 80 to 150 words) to ensure the video duration lasts between 30 to 60 seconds. Do NOT make it too short!
+6. You MUST generate at least 4 to 8 scenes to ensure a complete and engaging story pacing. Each scene maximum 25 words.
 7. Hook (first sentence of the first scene) maximum 12 words. It MUST start with an engaging phrase translated natively into ${targetLanguage.toUpperCase()} (equivalent to "Did you know...", "Have you ever wondered...", or "It turns out...").
 8. The closing sentence (in the last scene) MUST be an interactive Call to Action translated natively into ${targetLanguage.toUpperCase()} (equivalent to "What do you think?", "Let me know in the comments!").
 9. Visual keywords: MAXIMUM 2 words strictly in English (for stock footage search). The first word MUST be a subject, the second word a simple action.
