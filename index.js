@@ -7,6 +7,26 @@ import { scrapeArticle } from './src/utils/scraper.js';
 import { logger } from './src/utils/logger.js';
 import * as PATHS from './src/config/paths.js';
 import readline from 'readline';
+import fs from 'fs';
+
+function setupGracefulShutdown() {
+  const cleanup = () => {
+    logger.blank('\n');
+    logger.warn('Menerima sinyal pembatalan (Ctrl+C). Membersihkan file sampah...');
+    try {
+      if (fs.existsSync(PATHS.TEMP_DIR)) {
+        fs.rmSync(PATHS.TEMP_DIR, { recursive: true, force: true });
+        logger.success('Pembersihan selesai. Sampai jumpa!');
+      }
+    } catch (err) {
+      logger.error(`Gagal membersihkan folder temp: ${err.message}`);
+    }
+    process.exit(1);
+  };
+
+  process.on('SIGINT', cleanup);
+  process.on('SIGTERM', cleanup);
+}
 
 async function askQuestion(query) {
   const rl = readline.createInterface({
@@ -20,6 +40,7 @@ async function askQuestion(query) {
 }
 
 async function main() {
+  setupGracefulShutdown();
   try {
     let rawInput = process.argv.slice(2).join(' ');
 
