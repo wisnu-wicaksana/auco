@@ -10,9 +10,9 @@ const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_
 
 // File paths
 export const AUDIO_OUTPUT = path.join(TEMP_DIR, 'output_voice.mp3');
-export const SCRIPT_OUTPUT = path.join(OUTPUT_DIR, \`script_\${timestamp}.json\`);
-export const CAPTION_OUTPUT = path.join(OUTPUT_DIR, \`CAPTION_\${timestamp}.txt\`);
-export const FINAL_VIDEO = path.join(OUTPUT_DIR, \`FINAL_VIDEO_\${timestamp}.mp4\`);
+export const SCRIPT_OUTPUT = path.join(OUTPUT_DIR, `script_${timestamp}.json`);
+export const CAPTION_OUTPUT = path.join(OUTPUT_DIR, `CAPTION_${timestamp}.txt`);
+export const FINAL_VIDEO = path.join(OUTPUT_DIR, `FINAL_VIDEO_${timestamp}.mp4`);
 
 // Temp files
 export const TEMP_LIST = path.join(TEMP_DIR, 'list.txt');
