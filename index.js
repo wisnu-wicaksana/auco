@@ -67,7 +67,7 @@ async function main() {
 
     if (!rawInput) {
       logger.blank('\n=========================================');
-      logger.blank(' AUCO - Auto Content Creator');
+      logger.blank(' AUCO - Auto Content ');
       logger.blank('=========================================\n');
       rawInput = await askQuestion('What topic do you want to create a video about today? (Type a topic or paste a News Link): ', true);
     }
