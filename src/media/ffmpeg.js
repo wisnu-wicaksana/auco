@@ -48,8 +48,8 @@ export async function renderVideo(scenesList, audioFile, outputFile) {
     let concatLabels = '';
 
     validScenes.forEach((scene, i) => {
-      ffmpegInputs += `-stream_loop -1 -i "${path.resolve(scene.path)}" `;
-      filterComplex += `[${i}:v]fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,trim=duration=${scene.duration},setpts=PTS-STARTPTS,format=yuv420p[v${i}];`;
+      ffmpegInputs += `-i "${path.resolve(scene.path)}" `;
+      filterComplex += `[${i}:v]tpad=stop_mode=clone:stop_duration=${scene.duration},fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,trim=duration=${scene.duration},setpts=PTS-STARTPTS,format=yuv420p[v${i}];`;
       concatLabels += `[v${i}]`;
     });
 
