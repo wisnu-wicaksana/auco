@@ -58,15 +58,22 @@ npm link
 
 Trigger the application from any directory in your terminal.
 
-Option 1: Interactive Multiline Mode
-Type auco and press Enter. You can type or paste massive blocks of text or articles. 
-To submit, simply press Enter twice on a blank line.
+Option 1: Interactive Multiline Mode (For Long Articles)
+If you want to paste a massive article or news text, type the command below and press Enter:
 ```bash
 auco
 ```
+The terminal will wait for your input. 
+HOW TO SUBMIT: Because AUCO allows you to paste multi-paragraph articles, pressing Enter once will NOT submit the text (it just creates a new line). 
+To tell the system that you are completely finished typing/pasting, you MUST press the [Enter] key TWICE on a new blank line. 
+Example workflow:
+1. Type `auco`
+2. Paste your 1000-word article
+3. Press [Enter]
+4. Press [Enter] again (The video rendering will now start!)
 
-Option 2: Direct One-Liner (Fastest)
-Pass your topic or URL directly as an argument. AUCO will skip all questions and immediately start rendering.
+Option 2: Direct One-Liner (Fastest & Simplest)
+If you only have a short topic or a URL, you can skip the interactive mode completely. Just wrap your topic in quotes and pass it as an argument:
 ```bash
 auco "ceritakan sejarah candi borobudur untuk anak-anak"
 auco "https://newswebsite.com/article"
