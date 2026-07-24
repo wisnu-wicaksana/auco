@@ -18,7 +18,9 @@ export async function generateVoiceover(adeganList, outputFile) {
     const tts = new EdgeTTS({
       voice: 'id-ID-GadisNeural',
       lang: 'id-ID',
-      outputFormat: 'audio-24khz-48kbitrate-mono-mp3'
+      outputFormat: 'audio-24khz-48kbitrate-mono-mp3',
+      rate: '+15%',
+      pitch: '+5Hz'
     });
 
     console.log(`   [INFO] Menyuarakan adegan ${i + 1}/${adeganList.length}...`);
