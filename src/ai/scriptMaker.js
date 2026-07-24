@@ -58,9 +58,9 @@ EXPECTED JSON STRUCTURE:
 {
   "language": "The detected language name written in English (e.g. Indonesian, English, Spanish, Japanese)",
   "title": "Short title for the file",
-  "hook": "Hook text (max 12 words)",
-  "full_narration": "The entire narration concatenated here (max 150 words)",
-  "estimated_duration": 60,
+  "hook": "Hook text",
+  "full_narration": "The entire narration concatenated here (length adjusted based on requested duration)",
+  "estimated_duration": 120,
   "thumbnail_prompt": "Prompt for generating a thumbnail",
   "fallback_keywords": [
     "nature",
