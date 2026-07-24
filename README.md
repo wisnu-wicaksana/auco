@@ -1,75 +1,86 @@
-# AUCO - Auto Content 
+# AUCO - Auto Content Creator
 
-AUCO is an intelligent Command Line Interface (CLI) application designed to automate the process of generating short-form video content (such as TikTok, Instagram Reels, and YouTube Shorts) from a simple text prompt or a news article URL.
+AUCO is an intelligent, highly resilient Command Line Interface (CLI) application designed to fully automate the process of generating short-form video content (TikTok, Instagram Reels, YouTube Shorts) from a simple text prompt or a news article URL.
 
-AUCO orchestrates multiple artificial intelligence and media processing systems to handle scriptwriting, text-to-speech generation, B-Roll video sourcing, and hardware-accelerated video rendering.
+AUCO orchestrates multiple artificial intelligence and media processing systems to handle scriptwriting, localized text-to-speech, dynamic B-Roll sourcing, and hardware-accelerated rendering.
 
-## Core Features
+## Enterprise-Grade Features
 
-- Interactive CLI: Provides a seamless command-line experience. It can be run globally from any directory.
-- Primary-Fallback AI Architecture: Utilizes Google Gemini as the primary reasoning engine and automatically switches to Groq Llama 3 for fallback and high-availability.
-- Anti-Bot Web Scraper: Bypasses basic bot protections using custom headers to reliably extract content from news URLs.
-- Cross-Platform Hardware Acceleration: Automatically detects and utilizes GPU hardware encoders (such as Videotoolbox for macOS, NVENC for Nvidia, QSV for Intel) to render videos rapidly.
-- Single-Pass Filter Complex: Completely eliminates double-encoding. The FFmpeg engine trims, scales, loops, and concatenates all visual and audio elements within a single high-efficiency pass.
+- Zero-Latency Auto-Language Detection: Simply type your topic in any language (English, Indonesian, Spanish, Japanese, etc.). AUCO automatically detects the language and synchronizes the AI script, TikTok caption, and native neural TTS Voiceover without ever asking you.
+- Primary-Fallback AI Architecture: Utilizes Google Gemini as the primary reasoning engine. If Gemini hits API rate limits (HTTP 429), AUCO instantly and silently switches to Groq (Llama 3 70B) to ensure maximum uptime.
+- Ken Burns Image Fallback: If a suitable B-Roll video cannot be found on Pexels, AUCO automatically hunts for a high-quality static image and injects a cinematic "Slow Zoom-In/Pan" (Ken Burns) effect via FFmpeg to maintain visual retention.
+- FFprobe Anti-Corrupt Validator: Intercepts and forensically scans every downloaded media file before rendering. Any corrupted or incomplete videos are immediately purged to prevent rendering crashes.
+- Single-Pass Filter Complex: Completely eliminates double-encoding. The FFmpeg engine trims, scales, loops, and concatenates all visual and audio elements (including Whisper subtitles) within a single high-efficiency pass.
+- Cross-Platform Hardware Acceleration: Automatically detects and utilizes your GPU hardware encoders (Videotoolbox for macOS, NVENC for Nvidia, QSV for Intel) for lightning-fast rendering.
+- Graceful Shutdown & Multiline CLI: Supports copy-pasting massive articles directly into the terminal (submit by pressing Enter twice). Safely cleans up temporary workspaces if you cancel the process (Ctrl+C).
 
 ## Prerequisites
 
-Before installing the application, ensure that your system meets the following requirements:
+Before installing, ensure your system meets the following requirements:
 
 1. Node.js (version 20 or higher)
-2. FFmpeg (Must be installed and accessible from the system path)
+2. FFmpeg & FFprobe (Must be installed and accessible from the system path)
    - macOS: brew install ffmpeg
    - Windows: winget install ffmpeg
 3. Free API Keys from the following providers:
    - Google AI Studio (Gemini)
-   - Groq Cloud
-   - Pexels API
+   - Groq Cloud (Llama 3)
+   - Pexels API (B-Roll)
 
 ## Installation Guide
 
-1. Clone the repository
-Clone the AUCO project to your local machine:
+1. Clone the repository:
+```bash
 git clone https://github.com/wisnu-wicaksana/auco.git
 cd auco
+```
 
-2. Install dependencies
-Install the required Node.js packages:
+2. Install dependencies:
+```bash
 npm install
+```
 
-3. Configure Environment Variables
-Create a file named .env in the root directory of the project and add your API keys:
+3. Configure Environment Variables:
+Create a file named .env in the root directory and add your keys:
+```env
 GEMINI_API_KEY=your_gemini_api_key_here
 GROQ_API_KEY=your_groq_api_key_here
 PEXELS_API_KEY=your_pexels_api_key_here
+```
 
-4. Register the CLI globally
-Run the following command to link the application globally across your operating system:
+4. Register the CLI globally:
+```bash
 npm link
-
-Note: If you are using macOS or Linux, you might need to use sudo npm link if you encounter permission errors.
+```
+(Note: Use sudo npm link on macOS/Linux if you encounter permission errors.)
 
 ## Usage Instructions
 
-Once installed, you can trigger the application from any directory in your terminal.
+Trigger the application from any directory in your terminal.
 
-Option 1: Interactive Mode
-Simply type the command below and the application will prompt you for a topic or URL:
+Option 1: Interactive Multiline Mode
+Type auco and press Enter. You can type or paste massive blocks of text or articles. 
+To submit, simply press Enter twice on a blank line.
+```bash
 auco
+```
 
-Option 2: Direct Argument
-You can pass the topic or the article URL directly as an argument:
-auco "interesting facts about the deep ocean"
+Option 2: Direct One-Liner (Fastest)
+Pass your topic or URL directly as an argument. AUCO will skip all questions and immediately start rendering.
+```bash
+auco "ceritakan sejarah candi borobudur untuk anak-anak"
 auco "https://newswebsite.com/article"
+```
 
 ## Output Location
 
-Regardless of where you run the CLI command, all generated assets will be neatly organized inside the project directory:
+All generated assets are strictly organized inside the AUCO root project directory, regardless of where you ran the CLI command:
 auco/workspace/output/
 
-Inside this directory, you will find:
-- FINAL_VIDEO_TIKTOK.mp4 (The finalized, ready-to-upload video)
-- CAPTION_TIKTOK.txt (The generated caption and hashtags)
-- script.json (The raw JSON script data)
+You will find:
+- FINAL_VIDEO_TIKTOK.mp4 (The final rendered video)
+- CAPTION_TIKTOK.txt (The localized caption and hashtags)
+- script.json (The raw AI blueprint)
 
 ## Disclaimer
 
